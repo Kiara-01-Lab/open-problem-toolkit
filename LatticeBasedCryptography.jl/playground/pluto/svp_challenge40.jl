@@ -417,9 +417,16 @@ function BKZ_reduction!(B::AbstractMatrix, β::Integer, δ::Real)
 		end
 		if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + eps()
 			z = 0
-			Bsub = hcat((B[:, i] for i in 1:k-1)..., v, (B[:, i] for i in k:h)...)
+			Bsub = Matrix{BigInt}(undef, size(B, 1), h+1)
+			for i in 1:k-1
+				Bsub[:, i] .= @view B[:, i]
+			end
+			Bsub[:, k] = v
+			for i in k:h
+				Bsub[:, 1+i] = @view B[:, i]
+			end
 			MLLL_reduce!(Bsub, δ)
-			B[:, 1:h] .= Bsub[:, 1:h]
+			B[:, 1:h] .= @view Bsub[:, 1:h]
 		else
 			z += 1
 			g′ = LLL_reduce((@view B[:, 1:h]), δ)
@@ -450,6 +457,26 @@ let
 	BKZ_reduction!(B, 10, 0.5)
 	minkowski_upper_bound
 	@show norm(B[:, 1])
+end
+
+# ╔═╡ d5ffe339-8d7f-4fc9-a581-d9491e99b886
+let
+	B = [
+	    -79   43   -1  -58   84   -1   19  -58   17   93
+	     35  -64  -97  -38  -61   34   16  -17   31   -6
+	     31  -37  -91   87   93   58   52   99   78   -7
+	     83  -31  -43   42  -67  -38   32   93   53  -12
+	    -66  -27   19   94    3   29  -20  -49   40   79
+	     35   -7  -21  -83   94   67   55  -53  -22  -40
+	    -32  -42  -65   66   31  -18   94   24  -39   27
+	     46   21  -36  -69   27   15  -34   51    7  -95
+	     21   16   34   -2  -60  -75    4    5   70   98
+	      2   16  -55  -30   98  -16   80   93  -98   20
+	]
+	volL = abs(det(B))
+	n = size(B, 1)
+	minkowski_upper_bound = √n * (volL) ^ (1/n)
+	@code_warntype BKZ_reduction!(B, 10, 0.5)
 end
 
 # ╔═╡ 1bcdee95-e7d6-4118-a4b0-69873ff1c491
@@ -622,6 +649,7 @@ version = "5.15.0+0"
 # ╠═a6c717b5-0ba2-4fa4-9da7-2ed8950e8cef
 # ╠═fad8d91f-0216-4712-ac84-cb15cf5cb905
 # ╠═1f2a9445-9a43-4490-9ddc-eab6a7f86b1e
+# ╠═d5ffe339-8d7f-4fc9-a581-d9491e99b886
 # ╠═1bcdee95-e7d6-4118-a4b0-69873ff1c491
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

@@ -365,42 +365,49 @@ function find_svp_by_enum(B, k, l)
 end
 
 function BKZ_reduction!(B::AbstractMatrix, β::Integer, δ::Real)
-    g = LLL_reduce(B, δ)
-    B .= g.B
-    n = size(B, 2)
-    z = 0
-    k = 0
-    while z < n - 1
-        k = mod(k, n-1) + 1
-        l = min(k + β - 1, n)
-        h = min(l + 1, n)
-        coeff = find_svp_by_enum(B, k, l)
-        if iszerovec(coeff)
-            @info "coeff got zero vector"
-            break
-        end
-        v = zeros(eltype(B), n)
-        for (i, idx_k_to_l) in enumerate(k:l)
-            v += coeff[i] * B[:, idx_k_to_l]
-        end
+	g = LLL_reduce(B, δ)
+	B .= g.B
+	n = size(B, 2)
+	z = 0
+	k = 0
+	while z < n - 1
+		k = mod(k, n-1) + 1
+		l = min(k + β - 1, n)
+		h = min(l + 1, n)
+		coeff = find_svp_by_enum(B, k, l)
+		if iszerovec(coeff)
+			@info "coeff got zero vector"
+			break
+		end
+		v = zeros(eltype(B), n)
+		for (i, idx_k_to_l) in enumerate(k:l)
+			v += coeff[i] * B[:, idx_k_to_l]
+		end
 
-        g = GSOData(B)
+		g = GSOData(B)
 
-        πₖv_norm2 = 0
-        for i = k:n
-            πₖv_norm2 += dot(v, g.Q[:, i]) ^ 2 / dot(g.Q[:, i], g.Q[:, i])
-        end
-        if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + eps()
-            z = 0
-            Bsub = hcat((B[:, i] for i = 1:(k-1))..., v, (B[:, i] for i = k:h)...)
-            MLLL_reduce!(Bsub, δ)
-            B[:, 1:h] .= Bsub[:, 1:h]
-        else
-            z += 1
-            g′ = LLL_reduce((@view B[:, 1:h]), δ)
-            B[:, 1:h] = g′.B
-        end
-    end # while
+		πₖv_norm2 = 0
+		for i = k:n
+			πₖv_norm2 += dot(v, g.Q[:, i]) ^ 2 / dot(g.Q[:, i], g.Q[:, i])
+		end
+		if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + eps()
+			z = 0
+			Bsub = Matrix{BigInt}(undef, size(B, 1), h+1)
+			for i in 1:k-1
+				Bsub[:, i] .= @view B[:, i]
+			end
+			Bsub[:, k] = v
+			for i in k:h
+				Bsub[:, 1+i] = @view B[:, i]
+			end
+			MLLL_reduce!(Bsub, δ)
+			B[:, 1:h] .= @view Bsub[:, 1:h]
+		else
+			z += 1
+			g′ = LLL_reduce((@view B[:, 1:h]), δ)
+			B[:, 1:h] = g′.B
+		end
+	end # while
 end
 
 end # module LatticeReductionAlgorithms
