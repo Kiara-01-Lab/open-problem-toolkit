@@ -14,8 +14,22 @@ struct GSOData{I<:Integer,F<:Real}
 end
 
 function GSOData(B::AbstractMatrix)
-    Ffac = qr(B)
+    # Perform QR on a BigFloat copy with sufficient precision to avoid Inf/NaN
+    # caused by converting very large BigInts to Float64.
+    maxbits = mapreduce(x -> ndigits(abs(x); base=2), max, B; init=0)
+    prec_bits = max(256, 2 * maxbits + 32)
+    # Uniformly scale B by a power-of-two so QR stays in a safe exponent range.
+    # This preserves μ and all ratios used by the algorithms.
+    scale_pow = max(0, maxbits - 256)
+    Ffac = setprecision(prec_bits) do
+        scale = ldexp(BigFloat(1), -scale_pow)
+        qr(scale .* BigFloat.(B))
+    end
     Rfact = Matrix(Ffac.R)
+    if any(x -> !isfinite(x), Rfact)
+        println("[debug] R from QR contains non-finite entries; sample R[1,2]=", Rfact[1, min(2, size(Rfact,2))])
+        println("[debug] R diag = ", collect(diag(Rfact)))
+    end
     # Preserve original diagonal for Gram-Schmidt lengths and Q scaling
     d = diag(Rfact)
     # Build μ (size-reduction coefficients) safely without in-place mutation
@@ -44,6 +58,10 @@ function partial_size_reduce!(g::GSOData{IType,FType}, i::Int, j::Int) where {IT
         throw(ArgumentError("should satisfy i < j, actual i=$(i), j=$(j)"))
     end
     μ_ij = g.R[i, j]
+    if !(isfinite(μ_ij))
+        println("[debug] non-finite μ at (", i, ",", j, "): ", μ_ij)
+        println("[debug] row i of R: ", collect(@view g.R[i, :]))
+    end
     q = round(IType, μ_ij)
     bi = @view g.B[:, i]
     bj = @view g.B[:, j]
@@ -152,6 +170,7 @@ function gsoupdate!(g::GSOData, k::Integer)
     μ = g.R
     ν = μ[k-1, k]
     B = g.B⃗[k] + ν ^ 2 * g.B⃗[k-1]
+
     μ[k-1, k] = ν * g.B⃗[k-1] / B
     g.B⃗[k] = g.B⃗[k] * g.B⃗[k-1] / B
     g.B⃗[k-1] = B
@@ -371,7 +390,7 @@ function BKZ_reduction!(B::AbstractMatrix, β::Integer, δ::Real)
         for i = k:n
             πₖv_norm2 += dot(v, g.Q[:, i]) ^ 2 / dot(g.Q[:, i], g.Q[:, i])
         end
-        if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + 0.001
+        if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + eps()
             z = 0
             Bsub = hcat((B[:, i] for i = 1:(k-1))..., v, (B[:, i] for i = k:h)...)
             MLLL_reduce!(Bsub, δ)

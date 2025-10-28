@@ -21,8 +21,22 @@ begin
 	end
 	
 	function GSOData(B::AbstractMatrix)
-	    Ffac = qr(B)
+	    # Perform QR on a BigFloat copy with sufficient precision to avoid Inf/NaN
+	    # caused by converting very large BigInts to Float64.
+	    maxbits = mapreduce(x -> ndigits(abs(x); base=2), max, B; init=0)
+	    prec_bits = max(256, 2 * maxbits + 32)
+	    # Uniformly scale B by a power-of-two so QR stays in a safe exponent range.
+	    # This preserves μ and all ratios used by the algorithms.
+	    scale_pow = max(0, maxbits - 256)
+	    Ffac = setprecision(prec_bits) do
+	        scale = ldexp(BigFloat(1), -scale_pow)
+	        qr(scale .* BigFloat.(B))
+	    end
 	    Rfact = Matrix(Ffac.R)
+	    if any(x -> !isfinite(x), Rfact)
+	        println("[debug] R from QR contains non-finite entries; sample R[1,2]=", Rfact[1, min(2, size(Rfact,2))])
+	        println("[debug] R diag = ", collect(diag(Rfact)))
+	    end
 	    # Preserve original diagonal for Gram-Schmidt lengths and Q scaling
 	    d = diag(Rfact)
 	    # Build μ (size-reduction coefficients) safely without in-place mutation
@@ -401,7 +415,7 @@ function BKZ_reduction!(B::AbstractMatrix, β::Integer, δ::Real)
 		for i = k:n
 			πₖv_norm2 += dot(v, g.Q[:, i]) ^ 2 / dot(g.Q[:, i], g.Q[:, i])
 		end
-		if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + 0.001
+		if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + eps()
 			z = 0
 			Bsub = hcat((B[:, i] for i in 1:k-1)..., v, (B[:, i] for i in k:h)...)
 			MLLL_reduce!(Bsub, δ)
@@ -414,8 +428,35 @@ function BKZ_reduction!(B::AbstractMatrix, β::Integer, δ::Real)
 	end # while
 end
 
+# ╔═╡ 1f2a9445-9a43-4490-9ddc-eab6a7f86b1e
+let
+	B = [
+	    -79   43   -1  -58   84   -1   19  -58   17   93
+	     35  -64  -97  -38  -61   34   16  -17   31   -6
+	     31  -37  -91   87   93   58   52   99   78   -7
+	     83  -31  -43   42  -67  -38   32   93   53  -12
+	    -66  -27   19   94    3   29  -20  -49   40   79
+	     35   -7  -21  -83   94   67   55  -53  -22  -40
+	    -32  -42  -65   66   31  -18   94   24  -39   27
+	     46   21  -36  -69   27   15  -34   51    7  -95
+	     21   16   34   -2  -60  -75    4    5   70   98
+	      2   16  -55  -30   98  -16   80   93  -98   20
+	]
+	volL = abs(det(B))
+	@show volL
+	n = size(B, 1)
+	minkowski_upper_bound = √n * (volL) ^ (1/n)
+	@show minkowski_upper_bound
+	BKZ_reduction!(B, 10, 0.5)
+	minkowski_upper_bound
+	@show norm(B[:, 1])
+end
+
 # ╔═╡ 1bcdee95-e7d6-4118-a4b0-69873ff1c491
-B = [[2116403082371869720683693394276970360299642162558342355675014410771989791845340105007240644994094893408332181197956887657 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	B = [[2116403082371869720683693394276970360299642162558342355675014410771989791845340105007240644994094893408332181197956887657 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
 [371644562438531748585630085667746983470408244373580742281269821738816154869236300428137729771977309321210236491639933332 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
 [970128588937842140661210199069589679615703684562655262446230094731888177573698872897660975186881893815551083050469479861 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
 [1617885213873858163065250499756376305837976609435400008057297118650398723827143214937143752380433141030895046085134663139 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
@@ -457,11 +498,16 @@ B = [[21164030823718697206836933942769703602996421625583423556750144107719897918
 [1807564784681621941238943795385610371403525911952667414563776455384585295644151678837176854600997116364524617338835884611 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1]
 ] |> transpose |> Matrix
 
-# ╔═╡ 209d5b79-f621-40da-bb56-2cb6f6d479e2
-let
-	BKZ_reduction!(B, 3, 0.75)
-	B
-end 
+	volL = abs(det(B))
+	@show volL
+	n = size(B, 1)
+	minkowski_upper_bound = √n * (volL) ^ (1/n)
+	@show minkowski_upper_bound
+	BKZ_reduction!(B, 10, 0.5)
+	minkowski_upper_bound
+	@show norm(B[:, 1])
+end
+  ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -575,7 +621,7 @@ version = "5.15.0+0"
 # ╠═c6eb0aa3-c592-43dd-96cd-db86c9cc157a
 # ╠═a6c717b5-0ba2-4fa4-9da7-2ed8950e8cef
 # ╠═fad8d91f-0216-4712-ac84-cb15cf5cb905
+# ╠═1f2a9445-9a43-4490-9ddc-eab6a7f86b1e
 # ╠═1bcdee95-e7d6-4118-a4b0-69873ff1c491
-# ╠═209d5b79-f621-40da-bb56-2cb6f6d479e2
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
