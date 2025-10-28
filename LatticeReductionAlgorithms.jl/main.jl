@@ -1,3 +1,5 @@
+using LinearAlgebra
+
 using LatticeReductionAlgorithms: BKZ_reduction!
 
 B =
@@ -46,6 +48,11 @@ B =
     transpose |>
     Matrix
 
-β = 3
 δ = 0.75
-BKZ_reduction!(B, 3, 0.75)
+n = size(B, 1)
+volL = abs(det(B))
+minkowski_upper_bound = √n * (volL) ^ (1/n)
+@show minkowski_upper_bound
+β = n ÷ 2
+BKZ_reduction!(B, β, δ)
+@show norm(B[:, 1])
