@@ -4,14 +4,14 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 93cc1640-85c2-424e-b97c-85dc026f9cdf
+# ╔═╡ 96ab923a-afb1-11f0-86a8-9361eb87280f
 begin
 	using Test
+	using OffsetArrays: OffsetVector
 	using LinearAlgebra
-	using SpecialFunctions
 end
 
-# ╔═╡ 277647fc-62e0-45d5-b12b-c24ba2808c11
+# ╔═╡ 664f5e2e-ee6e-417d-bbef-2ebd485f0708
 begin
 	struct GSOData{I<:Integer, F<:Real}
 		B::Matrix{I}
@@ -19,42 +19,31 @@ begin
 		Q::Matrix{F}
 		R::Matrix{F}
 	end
-
-	function stable_qr(A::AbstractMatrix{<:Real})
-	    m, n = size(A)
-	    T = float(eltype(A))                 # A の実数要素型（Float64, BigFloat 等）
 	
-	    # 1) 列スケーリング（各列の 2-ノルム ≈ 1 に）
-	    colnorms = [norm(@view A[:,j]) for j in 1:n]
-	    scale = Vector{T}(undef, n)
-	    @inbounds for j in 1:n
-	        s = T(colnorms[j])
-	        scale[j] = (s == 0) ? one(T) : s
+	function GSOData(B::AbstractMatrix)
+	    Ffac = qr(B)
+	    Rfact = Matrix(Ffac.R)
+	    # Preserve original diagonal for Gram-Schmidt lengths and Q scaling
+	    d = diag(Rfact)
+	    # Build μ (size-reduction coefficients) safely without in-place mutation
+	    μ = copy(Rfact)
+	    for i in axes(μ, 1)
+	        dᵢ = d[i]
+	        if dᵢ == 0 || dᵢ != dᵢ # guard zero/NaN
+	            # Zero-norm GS vector: set row to represent no coupling
+	            for j = i:size(μ, 2)
+	                μ[i, j] = (j == i) ? one(eltype(μ)) : zero(eltype(μ))
+	            end
+	        else
+	            for j = i:size(μ, 2)
+	                μ[i, j] = μ[i, j] / dᵢ
+	            end
+	        end
 	    end
-	    Dinv = Diagonal(inv.(scale))
-	    As = A * Dinv
-	
-	    # 2) 列ピボット付きQR（Businger–Golub）
-	    F = qr(As, Val(true))                # Q, R, p
-	
-	    # 3) R にスケールを戻す（ピボット順に注意）
-	    R = F.R * Diagonal(scale[F.p])
-	
-	    return (Matrix(F.Q), R, F.p)
-	end
-	
-	function gso(B::AbstractMatrix)
-		Q, R, p = stable_qr(B)
-		R̃ = copy(R)
-		for i in axes(R̃, 1)
-			dᵢ = R̃[i, i]
-			for j in i:size(R̃, 2)
-				R̃[i, j] /= dᵢ
-			end
-		end
-		Q̃ = Q * Diagonal(R)
-		B⃗ = [dot((@view Q̃[:, j]), (@view Q̃[:, j])) for j in axes(Q̃, 2)]
-		return GSOData(B[:, p], B⃗, Q̃, R̃)
+	    # Construct GS vectors: Q * diag(original R diagonals)
+	    Q̃ = Ffac.Q * Diagonal(d)
+	    B⃗ = [dot((@view Q̃[:, j]), (@view Q̃[:, j])) for j in axes(Q̃, 2)]
+	    return GSOData(Matrix(B), B⃗, Q̃, μ)
 	end
 	
 	function partial_size_reduce!(g::GSOData{IType, FType}, i::Int, j::Int) where {IType, FType}
@@ -73,6 +62,28 @@ begin
 		end
 		g
 	end
+
+	@inline function iszerovec(v)
+		r = true
+		for i in eachindex(v)
+			r *= v[i] ≈ zero(v[i])
+		end
+		r
+	end
+	
+	function partial_size_reduce!(B::AbstractMatrix{T}, R::AbstractMatrix, i::Int, k::Int) where {T}
+	    (1 ≤ i < k) || return
+	    μ = R[i, k]
+	    m = round(T, μ)
+	    m == 0 && return
+	    B[:, k] .-= m .* B[:, i]
+	    @inbounds begin
+	        for j = 1:i-1
+	            R[j, k] -= m * R[j, i]
+	        end
+	        R[i, k] -= m
+	    end
+	end
 	
 	function size_reduce!(g::GSOData)
 		R = g.R
@@ -83,6 +94,79 @@ begin
 		end
 		g
 	end
+
+	@testset "GSO vector is invariant" begin
+		B = [
+			5  2  3
+			-3 -7 -10
+			-7 -7  0
+		]
+		Q = GSOData(B).Q
+		B_reduced = [
+			5  -3 1
+			-3 -4 -3
+			-7 0 7
+		]
+		Q_reduced = GSOData(B_reduced).Q
+		@test isapprox(Q, Q_reduced, atol=1e-14)
+	end
+end
+
+# ╔═╡ 9acc4eb8-bbce-445a-8775-e34d8dfe9d4b
+function ENUM_reduce(
+	μ::AbstractMatrix{T}, 
+	B⃗::AbstractVector{T}, 
+	R²::AbstractVector
+)::Tuple{Vector{BigInt}, Bool} where {T <: AbstractFloat}
+	n = length(B⃗)
+	σ = zeros(T, n+1, n)
+	r = OffsetVector(collect(0:n), 0:n)
+	ρ = zeros(T, n+1)
+	v = zeros(BigInt, n)
+	v[begin] = 1
+	c = zeros(T, n)
+	w = zeros(BigInt, n)
+	last_nonzero = 1
+	k = 1
+	while true
+		ρ[k] = ρ[k+1] + (v[k] - c[k]) ^ 2 * B⃗[k]
+		if ρ[k] ≤ R²[n+1-k]
+			if k == 1
+				# return solution
+				return (v, true)
+			end
+			k -= 1
+			r[k-1] = max(r[k-1], r[k])
+			for i = r[k]:-1:(k+1)
+				σ[i, k] = σ[i+1, k] + μ[k, i] * v[i]
+			end
+			c[k] = -σ[k+1, k]
+			v[k] = round(BigInt, c[k])
+			w[k] = 1
+		else
+			k += 1
+			if k == n + 1
+				# solution not found
+				return (zeros(n), false)
+			end
+			r[k-1] = k
+			if k ≥ last_nonzero
+				last_nonzero = k
+				v[k] += 1
+			else
+				if v[k] > c[k]
+					v[k] -= w[k]
+				else
+					v[k] += w[k]
+				end
+				w[k] += 1
+			end # if
+		end # if
+	end # while
+end # function
+
+# ╔═╡ 86981bab-8291-4406-87c2-d0b997a9de90
+begin
 	function gsoupdate!(g::GSOData, k::Integer)
 		k ≥ 2 || throw(ArgumentError("k should satisfy k ≥ 2, actual k=$(k)"))
 		for i in axes(g.B, 1)
@@ -107,11 +191,12 @@ begin
 		end
 		g
 	end
-	function LLL_reduce!(B::AbstractMatrix, δ::Real)
+	
+	function LLL_reduce(B::AbstractMatrix, δ::Real)
 		if !(0.25 < δ < 1)
 			throw(ArgumentError("Input δ must satisfy 0.25 < δ < 1"))
 		end
-		g = gso(B)
+		g = GSOData(B)
 		k = 2
 		n = size(g.B, 2)
 		while k ≤ n
@@ -127,13 +212,210 @@ begin
 				k = max(k-1, 2)
 			end
 		end
-		g
+		return g
 	end
 end
 
-# ╔═╡ c89ff954-a4d0-11f0-8a77-4592aa4ed233
-B = 
-[[2116403082371869720683693394276970360299642162558342355675014410771989791845340105007240644994094893408332181197956887657 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+# ╔═╡ c6eb0aa3-c592-43dd-96cd-db86c9cc157a
+begin
+	function _MLLL_reduce!(ℬ::AbstractMatrix{T}, δ::Float64) where {T}
+	    h = size(ℬ, 2)
+	    z = h
+	    g = 1
+	
+	    # GSO 用のワーク
+	    Q = float(T).(ℬ)
+	    R = zeros(eltype(Q), size(ℬ))
+	    for i in 1:min(size(R, 1), size(R, 2))
+	        R[i, i] = 1
+	    end
+	    B⃗ = zeros(eltype(Q), size(ℬ, 2))
+	
+	    while g ≤ z
+	        b_g = @view ℬ[:, g]
+	
+	        # 0 列なら末尾と交換して z を詰める
+	        if iszerovec(b_g)
+	            if g < z
+	                v = ℬ[:, g]
+	                ℬ[:, g] .= ℬ[:, z]
+	                ℬ[:, z] .= v
+	            end
+	            z -= 1
+	        end
+	
+	        # GSO: b_g* を直交化
+	        Q[:, g] .= ℬ[:, g]
+	        for i = 1:g-1
+	            b_i_ast = @view Q[:, i]
+	            B_i = dot(b_i_ast, b_i_ast)
+	            μ_ig = dot(Q[:, g], b_i_ast) / B_i
+	            R[i, g] = μ_ig
+	            Q[:, g] .-= μ_ig .* b_i_ast
+	        end
+	        B⃗[g] = dot((@view Q[:, g]), (@view Q[:, g]))
+	        if g == 1
+	            g = 2
+				continue
+	        end
+	
+	        # --- MLLL 本体 ---
+	        l = g
+	        k = g
+	        startagain = false
+	        while (k ≤ l) && !startagain
+	            partial_size_reduce!(ℬ, R, k - 1, k)
+	
+	            ν = R[k - 1, k]
+	            B = B⃗[k] + ν^2 * B⃗[k - 1]
+	
+	            if B ≥ δ * B⃗[k - 1]
+	                for j = k - 2:-1:1
+	                    partial_size_reduce!(ℬ, R, j, k)
+	                end
+	                k += 1
+	            else
+	                if iszerovec(@view ℬ[:, k])
+	                    if k < z
+	                        v = ℬ[:, k]
+	                        ℬ[:, k] .= ℬ[:, z]
+	                        ℬ[:, z] .= v
+	                    end
+	                    z -= 1
+	                    g = k
+	                    startagain = true
+	                else
+	                    ℬ[:, k - 1], ℬ[:, k] = ℬ[:, k], ℬ[:, k - 1]
+	                    for j = 1:k-2
+	                        R[j, k], R[j, k - 1] = R[j, k - 1], R[j, k]
+	                    end
+	
+	                    if !(B ≈ 0)
+	                        if B⃗[k] ≈ 0
+	                            B⃗[k] = B
+	                            Q[:, k - 1] .= ν .* Q[:, k - 1]
+	                            R[k - 1, k] = inv(ν)
+	                            for i = k+1:l
+	                                R[k - 1, i] /= ν
+	                            end
+	                        else
+	                            t = B⃗[k - 1] / B
+	                            R[k - 1, k] = ν * t
+	                            w = Q[:, k - 1]
+	                            Q[:, k - 1] .= Q[:, k] .+ ν .* w
+	                            B⃗[k - 1] = B
+	                            if k ≤ l
+	                                Q[:, k] .= -R[k - 1, k] .* Q[:, k] .+ (B⃗[k] / B) .* w
+	                                B⃗[k] *= t
+	                            end
+	                            for i = k+1:l
+	                                t = R[k, i]
+	                                R[k, i]     = R[k - 1, i] - ν * t
+	                                R[k - 1, i] = t + R[k - 1, k] * R[k, i]
+	                            end
+	                        end
+	                    else
+	                        B⃗[k], B⃗[k - 1] = B⃗[k - 1], B⃗[k]
+	                        Q[:, k], Q[:, k - 1] = Q[:, k - 1], Q[:, k]
+	                        for i = k+1:l
+	                            R[k, i], R[k - 1, i] = R[k-1, i], R[k, i]
+	                        end
+	                    end
+	                    k = max(k - 1, 2)
+	                end
+	            end
+	        end
+	
+	        if !startagain
+	            g += 1
+	        end
+	    end
+	end
+	
+	function MLLL_reduce!(B, δ)
+		g_target_j = typemax(Int)
+		while true
+			_MLLL_reduce!(B, δ)
+			target_j = -1
+			for j in size(B, 2):-1:1
+				if iszerovec(@view B[:, j])
+					target_j = j
+				end
+			end
+			
+			if target_j < 0
+				break
+			end
+			if target_j == g_target_j
+				break
+			end
+			
+			_MLLL_reduce!((@view B[:, 1:target_j]), δ)
+			g_target_j = target_j
+			break
+		end
+		B
+	end
+end
+
+# ╔═╡ a6c717b5-0ba2-4fa4-9da7-2ed8950e8cef
+function find_svp_by_enum(B, k, l)
+	@assert k < l
+	ε = 0.99
+	g = GSOData(B)
+	n = size(B, 2)
+
+	R²ₙ = ε * maximum(g.B⃗[k:l])
+	R² = [R²ₙ for k in k:l]
+	
+	μ = g.R[k:l,k:l]
+	B⃗ = g.B⃗[k:l]
+	coeff, is_succeeded = ENUM_reduce(μ, B⃗, R²)
+	return coeff
+end
+
+# ╔═╡ fad8d91f-0216-4712-ac84-cb15cf5cb905
+function BKZ_reduction!(B::AbstractMatrix, β::Integer, δ::Real)
+	g = LLL_reduce(B, δ)
+	B .= g.B
+	n = size(B, 2)
+	z = 0
+	k = 0
+	while z < n - 1
+		k = mod(k, n-1) + 1
+		l = min(k + β - 1, n)
+		h = min(l + 1, n)
+		coeff = find_svp_by_enum(B, k, l)
+		if iszerovec(coeff)
+			@info "coeff got zero vector"
+			break
+		end
+		v = zeros(eltype(B), n)
+		for (i, idx_k_to_l) in enumerate(k:l)
+			v += coeff[i] * B[:, idx_k_to_l]
+		end
+
+		g = GSOData(B)
+		
+		πₖv_norm2 = 0
+		for i = k:n
+			πₖv_norm2 += dot(v, g.Q[:, i]) ^ 2 / dot(g.Q[:, i], g.Q[:, i])
+		end
+		if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + 0.001
+			z = 0
+			Bsub = hcat((B[:, i] for i in 1:k-1)..., v, (B[:, i] for i in k:h)...)
+			MLLL_reduce!(Bsub, δ)
+			B[:, 1:h] .= Bsub[:, 1:h]
+		else
+			z += 1
+			g′ = LLL_reduce((@view B[:, 1:h]), δ)
+			B[:, 1:h] = g′.B
+		end
+	end # while
+end
+
+# ╔═╡ 1bcdee95-e7d6-4118-a4b0-69873ff1c491
+B = [[2116403082371869720683693394276970360299642162558342355675014410771989791845340105007240644994094893408332181197956887657 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
 [371644562438531748585630085667746983470408244373580742281269821738816154869236300428137729771977309321210236491639933332 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
 [970128588937842140661210199069589679615703684562655262446230094731888177573698872897660975186881893815551083050469479861 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
 [1617885213873858163065250499756376305837976609435400008057297118650398723827143214937143752380433141030895046085134663139 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
@@ -175,56 +457,30 @@ B =
 [1807564784681621941238943795385610371403525911952667414563776455384585295644151678837176854600997116364524617338835884611 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1]
 ] |> transpose |> Matrix
 
-# ╔═╡ 6248caae-c237-401e-91bf-ba083da0f1a1
-begin
-	function ⪅(a, b) # \leapprox
-		return a ≤ b || a ≈ b
-	end
-
-	for j in axes(B, 2)
-		@test norm(qr(B).Q[:, j]) ⪅ norm(B[:, j])
-	end
-end
-
-# ╔═╡ 47912860-8b1b-48b0-b563-d94bcc2cf820
+# ╔═╡ 209d5b79-f621-40da-bb56-2cb6f6d479e2
 let
-	Q, R, p = stable_qr(B)
-	residual = norm(B[:,p] - Q*R) / norm(B)
-	Q' * Q - I
-end
-
-# ╔═╡ bcd5a06f-74a9-4fb8-8346-be59d8c0da6b
-let
-	Q, R = qr(B)
-	residual = norm(B - Q*R) / norm(B)
-	Q' * Q - I
-end
-
-# ╔═╡ 3b2cae0b-a978-4cd8-b337-5de2d47e2cbd
-begin
-	δ = 0.75
-	g = LLL_reduce!(B, δ::Real)
-	g.B[:, 1]
-end
+	BKZ_reduction!(B, 3, 0.75)
+	B
+end 
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
-SpecialFunctions = "~2.5.1"
+OffsetArrays = "~1.17.0"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.0"
+julia_version = "1.12.1"
 manifest_format = "2.0"
-project_hash = "07b6a2af5d5fb1f0a41d4802d7190ebc8c9b950f"
+project_hash = "ce995e5c35e8d6524e2067c5cd1237b720050f47"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -239,31 +495,10 @@ deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 version = "1.3.0+1"
 
-[[deps.Dates]]
-deps = ["Printf"]
-uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
-version = "1.11.0"
-
-[[deps.DocStringExtensions]]
-git-tree-sha1 = "7442a5dfe1ebb773c29cc2962a8980f47221d76c"
-uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
-version = "0.9.5"
-
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 version = "1.11.0"
-
-[[deps.IrrationalConstants]]
-git-tree-sha1 = "e2222959fbc6c19554dc15174c81bf7bf3aa691c"
-uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
-version = "0.2.4"
-
-[[deps.JLLWrappers]]
-deps = ["Artifacts", "Preferences"]
-git-tree-sha1 = "0533e564aae234aff59ab625543145446d8b6ec2"
-uuid = "692b3bcd-3c85-4b1f-b108-f13ce0eb3210"
-version = "1.7.1"
 
 [[deps.JuliaSyntaxHighlighting]]
 deps = ["StyledStrings"]
@@ -279,22 +514,6 @@ deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 version = "1.12.0"
 
-[[deps.LogExpFunctions]]
-deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "13ca9e2586b89836fd20cccf56e57e2b9ae7f38f"
-uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.29"
-
-    [deps.LogExpFunctions.extensions]
-    LogExpFunctionsChainRulesCoreExt = "ChainRulesCore"
-    LogExpFunctionsChangesOfVariablesExt = "ChangesOfVariables"
-    LogExpFunctionsInverseFunctionsExt = "InverseFunctions"
-
-    [deps.LogExpFunctions.weakdeps]
-    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-    ChangesOfVariables = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
-    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
-
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 version = "1.11.0"
@@ -304,32 +523,21 @@ deps = ["Base64", "JuliaSyntaxHighlighting", "StyledStrings"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 version = "1.11.0"
 
+[[deps.OffsetArrays]]
+git-tree-sha1 = "117432e406b5c023f665fa73dc26e79ec3630151"
+uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
+version = "1.17.0"
+
+    [deps.OffsetArrays.extensions]
+    OffsetArraysAdaptExt = "Adapt"
+
+    [deps.OffsetArrays.weakdeps]
+    Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
 version = "0.3.29+0"
-
-[[deps.OpenLibm_jll]]
-deps = ["Artifacts", "Libdl"]
-uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-version = "0.8.7+0"
-
-[[deps.OpenSpecFun_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "1346c9208249809840c91b26703912dff463d335"
-uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
-version = "0.5.6+0"
-
-[[deps.Preferences]]
-deps = ["TOML"]
-git-tree-sha1 = "0f27480397253da18fe2c12a4ba4eb9eb208bf3d"
-uuid = "21216c6a-2e73-6563-6e65-726566657250"
-version = "1.5.0"
-
-[[deps.Printf]]
-deps = ["Unicode"]
-uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
-version = "1.11.0"
 
 [[deps.Random]]
 deps = ["SHA"]
@@ -344,49 +552,30 @@ version = "0.7.0"
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 version = "1.11.0"
 
-[[deps.SpecialFunctions]]
-deps = ["IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "41852b8679f78c8d8961eeadc8f62cef861a52e3"
-uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "2.5.1"
-
-    [deps.SpecialFunctions.extensions]
-    SpecialFunctionsChainRulesCoreExt = "ChainRulesCore"
-
-    [deps.SpecialFunctions.weakdeps]
-    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-
 [[deps.StyledStrings]]
 uuid = "f489334b-da3d-4c2e-b8f0-e476e12c162b"
 version = "1.11.0"
-
-[[deps.TOML]]
-deps = ["Dates"]
-uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
-version = "1.0.3"
 
 [[deps.Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 version = "1.11.0"
 
-[[deps.Unicode]]
-uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
-version = "1.11.0"
-
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.13.1+1"
+version = "5.15.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═93cc1640-85c2-424e-b97c-85dc026f9cdf
-# ╠═277647fc-62e0-45d5-b12b-c24ba2808c11
-# ╠═c89ff954-a4d0-11f0-8a77-4592aa4ed233
-# ╠═6248caae-c237-401e-91bf-ba083da0f1a1
-# ╠═47912860-8b1b-48b0-b563-d94bcc2cf820
-# ╠═bcd5a06f-74a9-4fb8-8346-be59d8c0da6b
-# ╠═3b2cae0b-a978-4cd8-b337-5de2d47e2cbd
+# ╠═96ab923a-afb1-11f0-86a8-9361eb87280f
+# ╠═664f5e2e-ee6e-417d-bbef-2ebd485f0708
+# ╠═9acc4eb8-bbce-445a-8775-e34d8dfe9d4b
+# ╠═86981bab-8291-4406-87c2-d0b997a9de90
+# ╠═c6eb0aa3-c592-43dd-96cd-db86c9cc157a
+# ╠═a6c717b5-0ba2-4fa4-9da7-2ed8950e8cef
+# ╠═fad8d91f-0216-4712-ac84-cb15cf5cb905
+# ╠═1bcdee95-e7d6-4118-a4b0-69873ff1c491
+# ╠═209d5b79-f621-40da-bb56-2cb6f6d479e2
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
