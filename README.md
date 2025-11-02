@@ -163,6 +163,10 @@ We welcome contributions of all kinds — from research ideas to code optimizati
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
 
+**Community Engagement:**
+
+For information about relevant open source and open science communities where you can share ideas, collaborate, or learn more about post-quantum cryptography, see [`COMMUNITIES.md`](COMMUNITIES.md).
+
 ---
 
 ## 📄 License
