@@ -1,301 +1,173 @@
 # Open Problem Toolkit
 
-A comprehensive Julia toolkit for learning and implementing modern cryptographic systems. This educational platform helps university students understand and work with cutting-edge encryption techniques that protect our digital world.
 
-Before this toolkit, developers had to build advanced cryptographic tools from scratch, which was time-consuming and difficult. The Open Problem Toolkit now provides ready-to-use security tools: HomomorphicCryptography.jl works with encrypted data without decrypting it, PQCValidator.jl tests defenses against quantum computer attacks, ZKPValidator.jl proves knowledge without revealing information, LibOQS.jl offers quantum-safe algorithms, and LatticeBasedCryptography.jl teaches quantum-resistant encryption methods. After adopting this toolkit, developers can quickly add cutting-edge privacy features without becoming cryptography experts.
+# 🧩 Exploring Lattice Cryptography through Open-Source Experimentation & Benchmarking
 
-このツールキットが登場する前は、開発者は高度な暗号技術ツールを一から構築する必要があり、時間がかかり困難でした。The Open Problem Toolkitは現在、すぐに使えるセキュリティツールを提供しています。HomomorphicCryptography.jlは暗号化されたデータを復号化せずに処理し、PQCValidator.jlは量子コンピュータ攻撃に対する防御をテストし、ZKPValidator.jlは情報を明かさずに知識を証明し、LibOQS.jlは量子耐性アルゴリズムを提供し、LatticeBasedCryptography.jlは量子耐性暗号化手法を教えます。このツールキットを採用することで、開発者は暗号の専門家にならなくても、最先端のプライバシー機能を素早く追加できるようになります。
+> *An open-source research initiative bridging theory and practice in post-quantum cryptography.*
+> 
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![Open Source](https://badgen.net/badge/open/source/green)]()
 
-![Alt text](https://drive.google.com/file/d/1DxnVVNZFsxOcJvJJjD9_LXnGK83pULua/view?usp=sharing)
+---
 
-1)Motivation for this “Open Problem Toolkit for PQC” Project 
-“PQC is difficult to understand. How can we make it easy and accessible for everyone?”
-(1-1) We want to understand the post-quantum cryptography(=PQC)
-(1-2)We build a toy version of PQC - in order to do 1 by touching and playing 
-(1-3)We want to build our own standard to measure the performance of PQC
-(1-4) We want to publish the difficult part of 3 and keep solving them with open science community
-(1-5)We keep distributing useful tools and research memos for 1-2-3 for everyone 
+## 📑 Table of Contents
 
-(1) この「PQCオープン問題ツールキット」プロジェクトの動機
-「PQCは理解が難しい。どうすれば誰にとっても簡単でアクセスしやすいものにできるだろうか?」
-(1-1) 私たちは耐量子計算機暗号(=PQC)を理解したい
-(1-2) 私たちはPQCのトイバージョン(簡易版)を構築する - (1-1)を実際に触って遊ぶことで実現するため
-(1-3) 私たちはPQCの性能を測定するための独自の基準を構築したい
-(1-4) 私たちは(1-3)の難しい部分を公開し、オープンサイエンスコミュニティと共にそれらを解決し続けたい
-(1-5) 私たちは(1-1)〜(1-3)のための有用なツールと研究メモを、すべての人に配布し続ける
+* [Abstract](#-abstract)
+* [Development](#-development)
+* [Why It Matters](#-why-it-matters)
+* [Roadmap](#-roadmap)
+* [Long-Term Vision](#-long-term-vision)
+* [Contributing](#-contributing)
+* [License](#-license)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Julia 1.10+](https://img.shields.io/badge/julia-1.10+-blue.svg)](https://julialang.org)
+---
 
+## 📘 Abstract
 
+Quantum computing threatens the foundations of classical public-key systems such as **RSA** and **ECC**.
+Among emerging alternatives, **lattice-based cryptography** — particularly those built on *structured lattices* (ring and module lattices) — stands out as a leading candidate for post-quantum security.
 
-## 🚀 Overview
+Yet despite its theoretical strength, practical adoption remains limited by challenges such as:
 
-The Open Problem Toolkit provides specialized packages for modern cryptographic research and development:
+* High computational overhead
+* Complex basis reduction
+* Large key sizes
 
-- **🔐 HomomorphicCryptography.jl** - Perform computations on encrypted data without decrypting it first, enabling privacy-preserving cloud computing
-- **🛡️ PQCValidator.jl** - Validate cryptographic systems against quantum computer attacks using post-quantum algorithms
-- **🔍 ZKPValidator.jl** - Prove you know something without revealing the information itself (e.g., prove you're over 18 without showing your birth date)
-- **🔒 LibOQS.jl** - Access quantum-safe cryptographic algorithms through Julia bindings to the Open Quantum Safe library
-- **🧮 LatticeBasedCryptography.jl** - Learn lattice-based cryptography through interactive tools and visualizations
+This project aims to **bridge theory and implementation** through an **open-source experimental framework** for lattice construction, reduction, and benchmarking.
+By building and testing core lattice algorithms, we seek to quantify the computational trade-offs in **reduction**, **key generation**, and **encryption/decryption efficiency**.
 
-🔐 HomomorphicCryptography.jl - 暗号化されたデータを復号化せずに計算を実行し、プライバシーを保護したクラウドコンピューティングを可能にします
-🛡️ PQCValidator.jl - 量子コンピュータ攻撃に対して、ポスト量子アルゴリズムを使用して暗号システムを検証します
-🔍 ZKPValidator.jl - 情報自体を明かさずに知識を証明します(例:生年月日を見せずに18歳以上であることを証明)
-🔒 LibOQS.jl - Open Quantum SafeライブラリへのJuliaバインディングを通じて、量子安全な暗号アルゴリズムにアクセスします
-🧮 LatticeBasedCryptography.jl - インタラクティブなツールと視覚化を通じて、格子ベース暗号を学習します
+### 🔬 Toolkit Overview
 
-## 🎯 Use Cases
+| Version  | Component                          | Description                                     |
+| -------- | ---------------------------------- | ----------------------------------------------- |
+| **v1.0** | *Ideal Lattice Builder*            | Tools for constructing ring-based lattices      |
+| **v1.1** | *Base Vector Reduction Algorithm*  | Classical lattice basis reduction               |
+| **v1.2** | *KZ (Korkine–Zolotarev) Reduction* | Advanced reduction for comparative benchmarking |
 
-### Privacy-Preserving Healthcare
-Use **HomomorphicCryptography.jl** to analyze encrypted patient data in the cloud without exposing sensitive medical information.
+Benchmarking is performed using the [Lattice Challenge](https://www.latticechallenge.org/), with emphasis on:
 
-### Quantum-Safe Communications
-Deploy **PQCValidator.jl** and **LibOQS.jl** to ensure your TLS connections remain secure even against future quantum computers.
+* **Scalability with lattice dimension**
+* **Runtime complexity**
+* **Numerical stability**
 
-### Anonymous Credentials
-Build systems with **ZKPValidator.jl** that verify user attributes (age, membership, credentials) without revealing personal information.
+> All code, data, and benchmark results are released openly to ensure **reproducibility** and **community collaboration**.
 
-### Cryptography Education
-Use **LatticeBasedCryptography.jl** interactive notebooks to teach students the mathematical foundations of modern post-quantum cryptography.
+![Lattice visualization](https://images.unsplash.com/photo-1643424975787-f134e78ecbc8?ixlib=rb-4.1.0\&q=85\&fm=jpg\&crop=entropy\&cs=srgb)
 
-### Research & Development
-Experiment with cutting-edge cryptographic protocols in a well-structured, documented environment with all packages.
+---
 
-## 🏃 Quick Start
+## 🧪 Development
 
-### Prerequisites
-- Julia 1.10 or later ([download here](https://julialang.org/downloads/))
-- Git
+### *Open Problem Toolkit: Building and Breaking Lattices for the Post-Quantum Era*
 
-### Your First Example
+Quantum computing is accelerating — and with it, the end of classical encryption as we know it.
+Lattice-based cryptography offers a **mathematically elegant**, **computationally hard**, and **provably secure** foundation for the post-quantum era.
+Yet, turning that promise into efficient, real-world systems remains a work in progress.
 
-Get started with lattice-based cryptography in under 5 minutes:
+That’s where this project comes in.
 
-```bash
-# Clone and navigate
-git clone https://github.com/Kiara-Dev-Team/open-problem-toolkit.git
-cd open-problem-toolkit/LatticeBasedCryptography.jl
+We’re developing an **open-source experimental toolkit** for exploring:
 
-# Install dependencies
-julia --project=. -e "using Pkg; Pkg.instantiate()"
+* Lattice construction and manipulation
+* Basis reduction and solver algorithms
+* Performance and reproducibility benchmarking
 
-# Launch interactive notebook
-julia --project=. playground/pluto/lattice_demo.jl
-```
+Our goal is to give researchers and developers a **hands-on understanding** of what it takes to build — and break — real lattice systems.
 
-This opens an interactive Pluto notebook where you can experiment with lattice reduction algorithms, see encryption in action, and visualize the mathematical structures that make post-quantum cryptography possible.
+### 🧭 Current Milestones
 
-## 📦 Package Structure
+| Milestone                         | Description                                      |
+| --------------------------------- | ------------------------------------------------ |
+| **v1.0 – Ideal Lattice Builder**  | Constructs ring-based lattices                   |
+| **v1.1 – Base Vector Reduction**  | Implements classical lattice reduction           |
+| **v1.2 – KZ Reduction Algorithm** | Advanced reduction with benchmarking in progress |
 
-```
-open-problem-toolkit/
-├── HomomorphicCryptography.jl/       # Homomorphic encryption library
-├── PQCValidator.jl/                  # Post-quantum crypto validator
-├── ZKPValidator.jl/                  # Zero-knowledge proof validator
-├── LibOQS.jl/                       # Open Quantum Safe Julia bindings
-├── LatticeBasedCryptography.jl/      # Lattice cryptography educational toolkit
-│   ├── playground/
-│   │   └── pluto/                    # Interactive Pluto notebooks
-│   └── src/                          # Core implementations
-├── CONTRIBUTING.md                   # Contribution guidelines
-└── LICENSE                           # MIT License
-```
+Once these modules are complete, we’ll run **large-scale benchmarks** on the [Lattice Challenge](https://www.latticechallenge.org/), evaluating **scalability** and **runtime performance**.
+Findings will be shared via **open preprints on [arXiv](https://arxiv.org/)** with full datasets and reproducible code.
 
-## 🛠️ Installation
+---
 
-### Option 1: Quick Install Script (Recommended)
+## 💡 Why It Matters
 
-```bash
-git clone https://github.com/Kiara-Dev-Team/open-problem-toolkit.git
-cd open-problem-toolkit
-julia install_all.jl
-```
+Modern cryptography needs **evidence**, not just theory.
+Our project exposes the practical limits of lattice algorithms — showing where math meets machine.
 
-### Option 2: Individual Package Installation
+Through empirical testing, we aim to uncover:
 
-Install only the packages you need:
+* How parameter choices affect computational efficiency
+* Which optimizations truly improve performance
+* Where current solvers begin to fail
 
-```bash
-# HomomorphicCryptography.jl
-cd HomomorphicCryptography.jl
-julia --project=. -e "using Pkg; Pkg.instantiate()"
+This bridges **theoretical security** with **real-world implementation**, providing data-driven insights that can guide the next generation of post-quantum cryptographic systems.
 
-# PQCValidator.jl
-cd ../PQCValidator.jl
-julia --project=. -e "using Pkg; Pkg.instantiate()"
+Being open-source from the start, we invite collaboration from:
 
-# ZKPValidator.jl
-cd ../ZKPValidator.jl
-julia --project=. -e "using Pkg; Pkg.instantiate()"
+* 🧮 Researchers
+* 💻 Developers
+* 🏢 Industry practitioners
 
-# LibOQS.jl
-cd ../LibOQS.jl
-julia --project=. -e "using Pkg; Pkg.instantiate()"
+Together, we can explore the balance between **usability** and **security** in post-quantum cryptography.
 
-# LatticeBasedCryptography.jl
-cd ../LatticeBasedCryptography.jl
-julia --project=. -e "using Pkg; Pkg.instantiate()"
-```
+---
 
-## 🧪 Testing
+## 🚀 Roadmap
 
-Each package includes comprehensive test suites:
+Each release builds toward a comprehensive toolkit for lattice-based cryptography — from mathematical construction to full-scale solver benchmarks.
 
-```bash
-# Test all packages
-julia test_all.jl
+### 🗓 Upcoming Milestones
 
-# Or test individually
-cd HomomorphicCryptography.jl && julia --project=. test/runtests.jl
-cd ../PQCValidator.jl && julia --project=. test/runtests.jl
-cd ../ZKPValidator.jl && julia --project=. test/runtests.jl
-cd ../LibOQS.jl && julia --project=. test/runtests.jl
-cd ../LatticeBasedCryptography.jl && julia --project=. test/runtests.jl
-```
+#### **September – October**
 
-## 📊 Project Status
+* Launch **v1.0** (Ideal Lattice Builder) and **v1.1** (Base Vector Reduction).
+* Release experimental **Solver A** and **Solver B** prototypes.
 
-| Package | Status | Standards Compliance | Purpose |
-|---------|--------|----------------------|---------|
-| HomomorphicCryptography.jl | 🧪 Experimental | ISO/IEC 18033-6:2019 (homomorphic encryption standard) | Privacy-preserving computation |
-| PQCValidator.jl | 🧪 Experimental | TLS 1.3 with NIST PQC algorithms | Post-quantum security validation |
-| ZKPValidator.jl | 🧪 Experimental | Draft ZKP standards (IETF, academic protocols) | Zero-knowledge proof research |
-| LibOQS.jl | 🧪 Experimental | NIST PQC Standards (Kyber, Dilithium, SPHINCS+) | Quantum-safe cryptographic algorithms |
-| LatticeBasedCryptography.jl | 🚀 Active Development | Educational best practices | Interactive lattice cryptography learning |
+#### **November**
 
-**Status Legend:**
-- 🧪 **Experimental** = Research-ready, not production-ready
-- 🚀 **Active Development** = Under active improvement, stable for educational use
+* Publish first preprint outlining initial results and open problems.
+* Optimize the implementation toolchain for scalability.
+
+#### **December – January**
+
+* Develop **Implementation Tool v2** for modular algorithm experimentation.
+* Launch alpha version and release second preprint focused on performance.
+
+#### **February – March**
+
+* Conduct **large-scale solver benchmarks** using [Lattice Challenge](https://www.latticechallenge.org/).
+* Analyze **dimensional scalability** and test **real-world optimization techniques**.
+
+---
+
+## 🌐 Long-Term Vision
+
+By mid-year, we aim to make this toolkit a **reference platform** for lattice cryptography —
+a place where researchers, students, and engineers can **build, test, and break** post-quantum schemes with complete transparency.
+
+Our end goal:
+
+> **Empower the community to develop practical, efficient, and secure post-quantum systems.**
+
+---
 
 ## 🤝 Contributing
 
-We welcome contributions to all packages! See our [Contributing Guide](CONTRIBUTING.md) for detailed information.
+We welcome contributions of all kinds — from research ideas to code optimization and documentation.
 
-### Quick Contribution Areas
-- **Algorithm implementations** - New cryptographic schemes and protocols
-- **Performance optimizations** - Hardware acceleration, algorithmic improvements
-- **Standards compliance** - Implementation of emerging cryptographic standards
-- **Documentation** - Examples, tutorials, and API documentation
-- **Testing** - Additional test cases and validation scenarios
-- **Interactive notebooks** - New educational demonstrations
+**How to Contribute:**
 
-### Getting Started with Contributing
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests (`julia test_all.jl`)
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature-name`)
+3. Commit your changes (`git commit -m "Add feature-name"`)
+4. Push to your branch (`git push origin feature-name`)
+5. Open a Pull Request
 
-## 📚 Documentation
-
-Detailed documentation is available for each package:
-- [HomomorphicCryptography.jl Documentation](HomomorphicCryptography.jl/README.md)
-- [PQCValidator.jl Documentation](PQCValidator.jl/README.md)
-- [ZKPValidator.jl Documentation](ZKPValidator.jl/README.md)
-- [LibOQS.jl Documentation](LibOQS.jl/README.md)
-- [LatticeBasedCryptography.jl Documentation](LatticeBasedCryptography.jl/README.md)
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Julia version mismatch**
-```bash
-# Check your Julia version
-julia --version
-# Should be 1.10 or higher
-```
-
-**Package installation fails**
-```bash
-# Clear package cache and retry
-julia -e 'using Pkg; Pkg.gc(); Pkg.instantiate()'
-```
-
-**LibOQS.jl native library errors**
-```bash
-# Ensure system dependencies are installed
-# On Ubuntu/Debian:
-sudo apt-get install cmake gcc g++ libssl-dev
-```
-
-**Pluto notebook won't launch**
-```bash
-# Install Pluto separately if needed
-julia -e 'using Pkg; Pkg.add("Pluto"); using Pluto; Pluto.run()'
-```
-
-Still having issues? [Open an issue](https://github.com/Kiara-Dev-Team/open-problem-toolkit/issues) or ask in our [Discussions](https://github.com/Kiara-Dev-Team/open-problem-toolkit/discussions).
-
-## 💬 Community & Support
-
-- **💡 Questions & Discussions**: [GitHub Discussions](https://github.com/Kiara-Dev-Team/open-problem-toolkit/discussions)
-- **🐛 Bug Reports**: [GitHub Issues](https://github.com/Kiara-Dev-Team/open-problem-toolkit/issues)
-- **📧 Email**: open-problem-toolkit@kiara.dev
-- **💬 Discord**: [Join our community](https://discord.gg/kiara-crypto)
-
-## 📈 Recent Updates
-
-### 🆕 September 2025 - LatticeBasedCryptography.jl Package
-
-We've added a comprehensive educational toolkit for lattice-based cryptography, featuring:
-
-#### **🔐 Complete Lattice-Based Encryption/Decryption System**
-- **Key generation algorithms** - Implementation of lattice-based key pair generation using Learning With Errors (LWE) and NTRU techniques
-- **Encryption/decryption functions** - Core cryptographic operations that transform plaintext to ciphertext using lattice mathematical structures
-
-#### **🔄 Interactive Lattice Reduction Algorithms**
-- **LLL (Lenstra-Lenstra-Lovász) algorithm** - The foundational lattice reduction technique with step-by-step visualization
-- **BKZ (Block Korkine-Zolotarev) variants** - Advanced reduction algorithms with interactive parameter tuning
-
-#### **🎓 Educational Demonstrations of LWE/Ring-LWE**
-- **Learning With Errors problem setup** - Interactive examples showing how LWE instances are constructed and why they're hard to solve
-- **Ring-LWE polynomial arithmetic** - Demonstrations of polynomial ring operations and their cryptographic applications
- 
-#### **🔒 Cryptographic Protocol Implementations**
-- **Key exchange protocols** - Implementation of lattice-based key agreement schemes with interactive parameter selection
-- **Digital signature schemes** - Code for lattice-based signatures like Dilithium and FALCON with verification demos
- 
-### 🛠️ Technical Implementation Details
-- **585 lines of new Pluto notebook code** added for interactive demonstrations
-- Full step-by-step walkthroughs of cryptographic operations
-- Visual representations of lattice structures and reduction processes
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-```
-MIT License
-
-Copyright (c) 2025 Kiara Development Team
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+This project is licensed under the Apache License.
+Feel free to use, modify, and distribute under the same terms.
 
 ---
-
-**⚠️ Security Notice**: These tools are intended for research and educational purposes. For production use, ensure proper security review and follow current best practices for cryptographic implementations. Do not use experimental cryptographic implementations in production systems without thorough security auditing.
-
----
-
-**🌟 Star us on GitHub!** If you find this toolkit useful, please consider giving us a star. It helps others discover this educational resource.
