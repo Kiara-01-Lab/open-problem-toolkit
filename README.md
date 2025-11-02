@@ -17,6 +17,7 @@
 * [Why It Matters](#-why-it-matters)
 * [Roadmap](#-roadmap)
 * [Long-Term Vision](#-long-term-vision)
+* [Publication & Outreach](#-publication--outreach)
 * [Contributing](#-contributing)
 * [License](#-license)
 
@@ -146,6 +147,25 @@ a place where researchers, students, and engineers can **build, test, and break*
 Our end goal:
 
 > **Empower the community to develop practical, efficient, and secure post-quantum systems.**
+
+---
+
+## 📢 Publication & Outreach
+
+We are committed to open science and community engagement. Our research will be shared through multiple channels:
+
+* **Preprints**: [arXiv](https://arxiv.org/) (cs.CR, math.NT)
+* **Conferences**: IACR conferences (CRYPTO, EUROCRYPT, PQCrypto), ACM CCS, IEEE S&P
+* **Community**: Open Quantum Safe Project, Julia Community, NIST PQC Forum
+
+For a comprehensive list of publication venues and communities where we plan to share our work, see **[COMMUNITIES.md](COMMUNITIES.md)**.
+
+This document includes:
+- Post-quantum cryptography conferences and workshops
+- Open science platforms and preprint archives
+- Mathematics and computer science academic venues
+- Open source software communities
+- Recommended timeline for publication leading to October 2025
 
 ---
 
