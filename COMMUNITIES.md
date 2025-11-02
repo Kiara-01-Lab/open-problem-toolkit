@@ -137,7 +137,7 @@ This document lists potential communities relevant to the Open Problem Toolkit p
   - Focus: Applied mathematics, computational science
   - Events: Conferences on discrete mathematics, optimization
 
-* **[Mathematical Programming Society (MPS)](https://www.mathprograms.org/)**
+* **[Mathematical Programming Society (MPS)](https://www.mathopt.org/)**
   - Focus: Optimization, algorithms
   - Audience: Researchers in mathematical optimization
 

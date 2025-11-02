@@ -161,8 +161,6 @@ We welcome contributions of all kinds — from research ideas to code optimizati
 4. Push to your branch (`git push origin feature-name`)
 5. Open a Pull Request
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
-
 **Community Engagement:**
 
 For information about relevant open source and open science communities where you can share ideas, collaborate, or learn more about post-quantum cryptography, see [`COMMUNITIES.md`](COMMUNITIES.md).
