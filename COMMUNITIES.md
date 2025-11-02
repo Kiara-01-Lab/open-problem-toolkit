@@ -217,9 +217,9 @@ This document lists potential communities relevant to the Open Problem Toolkit p
   - Projects: OSF, preregistration, reproducibility
   - Audience: Researchers committed to transparency
 
-* **[Mozilla Science Lab Alumni Network](https://science.mozilla.org/)** - Open science advocacy
-  - Focus: Open research, tools, community
-  - Audience: Scientists and developers
+* **[Open Research Funders Group](https://www.orfg.org/)** - Funders supporting open research
+  - Focus: Open access, open data, research transparency
+  - Audience: Researchers, funders, institutions
 
 ---
 
