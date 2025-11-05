@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.20.10
+# v0.20.19
 
 using Markdown
 using InteractiveUtils
@@ -105,6 +105,32 @@ let
 	@assert norm(b2) ≤ norm(b1 + b2)
 end
 
+# ╔═╡ 5c3a953c-1453-489f-b772-5eb84be98c9b
+let
+	# See 2dlattice_viewer.jl
+	b1 = [
+		18
+		1
+	]
+	
+	b2 = [
+		8
+		1
+	]
+	B = hcat(b1, b2)
+	reducebasis!(GaussLagrange, B)
+	@assert B == [
+		2  2
+		-1 4
+	] 
+	# ガウス-ラグランジュ簡約基底の性質の確認
+	b1 = @view B[:, 1]
+	b2 = @view B[:, 2]
+	@assert norm(b1) ≤ norm(b2)
+	@assert norm(b2) ≤ norm(b1 - b2)
+	@assert norm(b2) ≤ norm(b1 + b2)	
+end
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -115,9 +141,9 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.7"
+julia_version = "1.12.1"
 manifest_format = "2.0"
-project_hash = "ac1187e548c6ab173ac57d4e72da1620216bce54"
+project_hash = "f352ceee806168c8ae38887a01d7bae6ca62470b"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -126,7 +152,7 @@ version = "1.11.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.1.1+0"
+version = "1.3.0+1"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -135,17 +161,17 @@ version = "1.11.0"
 [[deps.LinearAlgebra]]
 deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-version = "1.11.0"
+version = "1.12.0"
 
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.27+1"
+version = "0.3.29+0"
 
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.11.0+0"
+version = "5.15.0+0"
 """
 
 # ╔═╡ Cell order:
@@ -155,5 +181,6 @@ version = "5.11.0+0"
 # ╠═355d71c0-5c38-454e-bb42-093142125828
 # ╠═e7ccc1d8-9a8d-11f0-364f-8bc51dbac3b3
 # ╠═d86c591c-6cbc-49fe-9a25-8dcb54aa28dc
+# ╠═5c3a953c-1453-489f-b772-5eb84be98c9b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
