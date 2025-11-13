@@ -11,6 +11,16 @@ begin
 	using LinearAlgebra
 end
 
+# ╔═╡ 1dc4a9c7-ee86-4b15-8bd4-6ec662b5496e
+function fplll_round(μ)
+	# fplll の最近整数関数に合わせる: 最近接（0.5 はゼロから遠い側に丸め）
+	if μ >= zero(μ)
+		q_i = floor(BigInt, μ + (one(μ) / 2))
+	else
+		q_i = ceil(BigInt, μ - (one(μ) / 2))
+	end
+end
+
 # ╔═╡ 664f5e2e-ee6e-417d-bbef-2ebd485f0708
 begin
 	struct GSOData{I<:Integer, F<:Real}
@@ -67,7 +77,7 @@ begin
 			)
 		end
 		μ_ij = g.R[i, j]
-		q = round(IType, μ_ij)
+		q = fplll_round(μ_ij)
 		bi = @view g.B[:, i]
 		bj = @view g.B[:, j]
 		@. bj -= q * bi
@@ -88,7 +98,7 @@ begin
 	function partial_size_reduce!(B::AbstractMatrix{T}, R::AbstractMatrix, i::Int, k::Int) where {T}
 	    (1 ≤ i < k) || return
 	    μ = R[i, k]
-	    m = round(T, μ)
+	    m = fplll_round(μ)
 	    m == 0 && return
 	    B[:, k] .-= m .* B[:, i]
 	    @inbounds begin
@@ -155,7 +165,7 @@ function ENUM_reduce(
 				σ[i, k] = σ[i+1, k] + μ[k, i] * v[i]
 			end
 			c[k] = -σ[k+1, k]
-			v[k] = round(BigInt, c[k])
+			v[k] = fplll_round(c[k])
 			w[k] = 1
 		else
 			k += 1
@@ -643,6 +653,7 @@ version = "5.15.0+0"
 # ╔═╡ Cell order:
 # ╠═96ab923a-afb1-11f0-86a8-9361eb87280f
 # ╠═664f5e2e-ee6e-417d-bbef-2ebd485f0708
+# ╠═1dc4a9c7-ee86-4b15-8bd4-6ec662b5496e
 # ╠═9acc4eb8-bbce-445a-8775-e34d8dfe9d4b
 # ╠═86981bab-8291-4406-87c2-d0b997a9de90
 # ╠═c6eb0aa3-c592-43dd-96cd-db86c9cc157a

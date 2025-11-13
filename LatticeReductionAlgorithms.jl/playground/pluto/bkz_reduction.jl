@@ -41,7 +41,7 @@ begin
 			)
 		end
 		μ_ij = g.R[i, j]
-		q = round(IType, μ_ij)
+		q = fplll_round(μ_ij)
 		bi = @view g.B[:, i]
 		bj = @view g.B[:, j]
 		@. bj -= q * bi
@@ -58,11 +58,21 @@ begin
 		end
 		r
 	end
+
+	function fplll_round(μ)
+	    # fplll の最近整数関数に合わせる: 最近接（0.5 はゼロから遠い側に丸め）
+	    if μ >= zero(μ)
+	        q_i = floor(BigInt, μ + (one(μ) / 2))
+	    else
+	        q_i = ceil(BigInt, μ - (one(μ) / 2))
+	    end
+	end
+
 	
 	function partial_size_reduce!(B::AbstractMatrix{T}, R::AbstractMatrix, i::Int, k::Int) where {T}
 	    (1 ≤ i < k) || return
 	    μ = R[i, k]
-	    m = round(T, μ)
+	    m = fplll_round(μ)
 	    m == 0 && return
 	    B[:, k] .-= m .* B[:, i]
 	    @inbounds begin
@@ -129,7 +139,7 @@ function ENUM_reduce(
 				σ[i, k] = σ[i+1, k] + μ[k, i] * v[i]
 			end
 			c[k] = -σ[k+1, k]
-			v[k] = round(BigInt, c[k])
+			v[k] = fplll_round(c[k])
 			w[k] = 1
 		else
 			k += 1

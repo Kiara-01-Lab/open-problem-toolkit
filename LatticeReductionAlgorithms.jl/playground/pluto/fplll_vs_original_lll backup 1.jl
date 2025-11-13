@@ -8,6 +8,7 @@ using InteractiveUtils
 begin
 	using Test
 	using LinearAlgebra
+	using MultiFloats
 end
 
 # ╔═╡ 5b290410-03a6-43d5-8340-8158216057e4
@@ -24,7 +25,7 @@ begin
 		Q = F.(B)
 		R = zeros(F, size(B))
 		for i in axes(R, 1)
-			R[i, i] = one(eltype(R))
+			R[i, i] = 1
 		end
 		for j in axes(R, 2)
 			Q[:, j] .= @view B[:, j]
@@ -40,24 +41,22 @@ begin
 		return GSOData(B, B⃗, Q, R)
 	end
 	
-	function partial_size_reduce!(g::GSOData{IType,FType}, i::Int, j::Int) where {IType,FType}
-	    if !(i < j)
-	        throw(ArgumentError("should satisfy i < j, actual i=$(i), j=$(j)"))
-	    end
-	    μ_ij = g.R[i, j]
-	    # fplll の最近整数関数に合わせる: 最近接（0.5 はゼロから遠い側に丸め）
-	    if μ_ij >= zero(FType)
-	        q_i = floor(BigInt, μ_ij + (one(FType) / 2))
-	    else
-	        q_i = ceil(BigInt, μ_ij - (one(FType) / 2))
-	    end
-	    bi = @view g.B[:, i]
-	    bj = @view g.B[:, j]
-	    @. bj -= q_i * bi
-	    for l = 1:i
-	        g.R[l, j] -= q_i * g.R[l, i]
-	    end
-	    g
+	function partial_size_reduce!(g::GSOData{IType, FType}, i::Int, j::Int) where {IType, FType}
+		if !(i < j)
+			throw(
+				ArgumentError("should satisfy i < j, actual i=$(i), j=$(j)")
+			)
+		end
+		μ_ij = g.R[i, j]
+		q_ = round(BigInt, BigFloat(μ_ij))
+		q = FType(q_)
+		bi = @view g.B[:, i]
+		bj = @view g.B[:, j]
+		@. bj -= q * bi
+		for l in 1:i
+			g.R[l, j] -= q * g.R[l, i]
+		end
+		g
 	end
 	
 	function size_reduce!(g::GSOData)
@@ -102,7 +101,7 @@ function gsoupdate!(g::GSOData, k::Integer)
 	g.B⃗[k-1] = B
 	for j = 1:(k-2)
 		# swap
-		μ[j, k-1], μ[j, k] = μ[j, k], μ[j, k-1]
+		μ[j, k-1], μ[j, k] =μ[j, k], μ[j, k-1]
 	end
 	n = size(μ, 2)
 	for i = (k+1):n
@@ -125,17 +124,13 @@ function LLL_reduce(B::AbstractMatrix, δ::Real)
 	k = 2
 	n = size(g.B, 2)
 	while k ≤ n
-		#@info k
 		for j = (k-1):-1:1
-			#@info "partial_size_reduce!" j k
 			partial_size_reduce!(g, j, k)
 		end
-		if g.B⃗[k] ≥ (δ - g.R[k-1, k] ^ 2) * g.B⃗[k-1]
-			#@info "k+=1"
+		if g.B⃗[k] ⪆ (δ - g.R[k-1, k] ^ 2) * g.B⃗[k-1]
 			# Lovász 条件を満たす
 			k += 1
 		else
-			#@info "gsoupdate"
 			# swap basis
 			gsoupdate!(g, k)
 			k = max(k-1, 2)
@@ -186,11 +181,10 @@ end
 
 # ╔═╡ 98765d50-9c42-45f0-8896-d8fef005d03e
 begin
-	d = 40
-	b = 10
-	B = Matrix{BigInt}(latticegen(d, b))
+	d = 17
+	b = 4
+	B = latticegen(d, b)
 	g = LLL_reduce(B, 0.99)
-	display("g.B == fplll(d, b): $(g.B == fplll(d, b))")
 	display(g.B - fplll(d, b))
 	display(g.B)
 	display(fplll(d, b))
@@ -200,7 +194,11 @@ end
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MultiFloats = "bdf0d083-296b-4888-a5b6-7498122e68a5"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+MultiFloats = "~2.3.0"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -209,7 +207,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.12.1"
 manifest_format = "2.0"
-project_hash = "daa57a5ae35ddc41f805b1b81e5a5b0171a8b179"
+project_hash = "c60856abf658f1600d6fed8b76b3a7fdb2341a9d"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -223,6 +221,11 @@ version = "1.11.0"
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 version = "1.3.0+1"
+
+[[deps.Dates]]
+deps = ["Printf"]
+uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
+version = "1.11.0"
 
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
@@ -252,10 +255,33 @@ deps = ["Base64", "JuliaSyntaxHighlighting", "StyledStrings"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 version = "1.11.0"
 
+[[deps.MultiFloats]]
+deps = ["LinearAlgebra", "Printf", "Random", "SIMD"]
+git-tree-sha1 = "39ffa6286f40544ecea725d8031c615e79d88d45"
+uuid = "bdf0d083-296b-4888-a5b6-7498122e68a5"
+version = "2.3.0"
+
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
 version = "0.3.29+0"
+
+[[deps.PrecompileTools]]
+deps = ["Preferences"]
+git-tree-sha1 = "07a921781cab75691315adc645096ed5e370cb77"
+uuid = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+version = "1.3.3"
+
+[[deps.Preferences]]
+deps = ["TOML"]
+git-tree-sha1 = "0f27480397253da18fe2c12a4ba4eb9eb208bf3d"
+uuid = "21216c6a-2e73-6563-6e65-726566657250"
+version = "1.5.0"
+
+[[deps.Printf]]
+deps = ["Unicode"]
+uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+version = "1.11.0"
 
 [[deps.Random]]
 deps = ["SHA"]
@@ -266,6 +292,12 @@ version = "1.11.0"
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 version = "0.7.0"
 
+[[deps.SIMD]]
+deps = ["PrecompileTools"]
+git-tree-sha1 = "e24dc23107d426a096d3eae6c165b921e74c18e4"
+uuid = "fdea26ae-647d-5447-a871-4b548cad5224"
+version = "3.7.2"
+
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 version = "1.11.0"
@@ -274,9 +306,18 @@ version = "1.11.0"
 uuid = "f489334b-da3d-4c2e-b8f0-e476e12c162b"
 version = "1.11.0"
 
+[[deps.TOML]]
+deps = ["Dates"]
+uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+version = "1.0.3"
+
 [[deps.Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+version = "1.11.0"
+
+[[deps.Unicode]]
+uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 version = "1.11.0"
 
 [[deps.libblastrampoline_jll]]

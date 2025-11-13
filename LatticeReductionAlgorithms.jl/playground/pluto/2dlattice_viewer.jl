@@ -26,14 +26,15 @@ function showlattice(lattice::Lattice2D)
 	end
 	x = hcat(vertices...)[1, :]
 	y = hcat(vertices...)[2, :]
-	plt = plot()
-	scatter!(plt, x, y, legend=false, axis=false, aspectratio=:equal)
+	plt = plot(axis=false, aspectratio=:equal, legend=false)
+	scatter!(plt, x, y)
 	quiver!(
 		plt,
 		[0, 0], [0, 0], 
-		quiver=((lattice.b1[1], lattice.b2[1]), (lattice.b1[2], lattice.b2[2]))
+		quiver=((lattice.b1[1], lattice.b2[1]), (lattice.b1[2], lattice.b2[2])),
+		color=:orange,
 	)
-	scatter!(plt, [0], [0.])
+	scatter!(plt, [0], [0.], xlim=[-20, 20], ylim=[-20, 20], color=:green)
 end
 
 # ╔═╡ d8597876-842e-4307-acdc-f960f5fa95ce
