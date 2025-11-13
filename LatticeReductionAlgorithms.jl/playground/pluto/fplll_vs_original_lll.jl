@@ -186,15 +186,19 @@ end
 
 # ╔═╡ 98765d50-9c42-45f0-8896-d8fef005d03e
 begin
-	d = 40
-	b = 10
+	d = 20
+	b = 256
 	B = Matrix{BigInt}(latticegen(d, b))
-	g = LLL_reduce(B, 0.99)
+	@time g = LLL_reduce(B, 0.99)
+	@time fplll(d, b)
 	display("g.B == fplll(d, b): $(g.B == fplll(d, b))")
 	display(g.B - fplll(d, b))
 	display(g.B)
 	display(fplll(d, b))
 end
+
+# ╔═╡ 7352909e-dd74-4441-bead-157efe7da1f1
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -293,5 +297,6 @@ version = "5.15.0+0"
 # ╠═15f48411-c9dc-4b40-a04b-abb134f41cc0
 # ╠═6295c9c1-9203-4263-8a22-925f3740fbe8
 # ╠═98765d50-9c42-45f0-8896-d8fef005d03e
+# ╠═7352909e-dd74-4441-bead-157efe7da1f1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

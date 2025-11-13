@@ -458,6 +458,58 @@ let
 	B
 end
 
+# ╔═╡ 4c47736f-4125-482d-a735-c2492219f652
+begin
+	function latticegen(d, b)
+		str = read(`latticegen u $(d) $(b)`, String)
+	    # 1) 先頭 [[ と末尾 ]] を削除
+	    s = replace(str, r"^\s*\[\[|\]\]\s*$" => "")
+	    # 2) ][（または ] [）を行区切り ; に
+	    s = replace(s, r"\]\s*\[" => ";")
+	    # 3) 1組の角括弧で包む（列はスペース区切りのまま）
+	    julia_expr = "[" * s * "]"
+	
+	    mat = Matrix(transpose(eval(Meta.parse(julia_expr))))
+	    mat
+	end
+	
+	function fplll_bkz(d, b, β)
+		s = read(pipeline(`latticegen u $(d) $(b)`, `fplll -a bkz -b $β -d 0.99`), String)
+	    # 1) 文字列中の "\n" を実際の改行に
+	    s = replace(s, "\\n" => "\n")
+	
+	    # 2) ][（ ] [ 含む）を行区切り ; に
+	    s = replace(s, r"\]\s*\[" => " ; ")
+	
+	    # 3) 残る全ての [ と ] を削除（余計な ] があっても消える）
+	    s = replace(s, ['[', ']'] => ' ')
+	
+	    # 4) 余分な空白を正規化
+	    s = replace(s, r"[ \t]+" => " ")
+	    s = strip(s)
+	
+	    # 5) 1 組の角括弧で包んで Julia の行列リテラルに
+	    expr = "[" * s * "]"
+	
+	    # デバッグ用に確認したい場合:
+	    # println(expr)
+	
+	    mat = Matrix(transpose(eval(Meta.parse(expr))))
+	end
+end
+
+# ╔═╡ 4c53633b-e60d-437f-88a5-3ada891280d9
+let
+	d = 9
+	b = 10
+	β = 4
+	B = latticegen(d, b)
+	refB = fplll_bkz(d, b, β)
+	δ = 0.99
+	BKZ_reduction!(B, β, δ)
+	abs.(B - refB)
+end
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -573,5 +625,7 @@ version = "5.15.0+0"
 # ╠═209d5b79-f621-40da-bb56-2cb6f6d479e2
 # ╠═dc1f8ffa-4fca-4d68-8053-a17e7aab3586
 # ╠═e22c6910-e1a9-473a-a2f0-fe2aacb9dfb1
+# ╠═4c47736f-4125-482d-a735-c2492219f652
+# ╠═4c53633b-e60d-437f-88a5-3ada891280d9
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
