@@ -6,12 +6,19 @@ using OffsetArrays
 using LinearAlgebra
 using OffsetArrays: OffsetVector
 using Base.GMP: MPZ
+import Base.MPFR
 
 struct GSOData{I<:Integer,F<:Real}
     B::Matrix{I}
     B⃗::Vector{F}
     Q::Matrix{F}
     R::Matrix{F}
+end
+
+@inline function clone_bigint(x::BigInt)
+    y = BigInt()
+    MPZ.set!(y, x)  # x の値を y にコピー（mpz_set）
+    return y
 end
 
 function GSOData(B::AbstractMatrix)
@@ -24,8 +31,28 @@ function GSOData(B::AbstractMatrix)
         end
     end
     Q̃ = F.Q * Diagonal(F.R)
+    Bmat = Matrix(B)
     B⃗ = [dot((@view Q̃[:, j]), (@view Q̃[:, j])) for j in axes(Q̃, 2)]
-    return GSOData(Matrix(B), B⃗, Q̃, R̃)
+    return GSOData(Bmat, B⃗, Q̃, R̃)
+end
+
+function GSOData(B::AbstractMatrix{BigInt})
+    F = qr(B)
+    R̃ = F.R
+    for i in axes(R̃, 1)
+        dᵢ = R̃[i, i]
+        for j = i:size(R̃, 2)
+            R̃[i, j] /= dᵢ
+        end
+    end
+    Q̃ = F.Q * Diagonal(F.R)
+    Bmat = Matrix(B)
+    # For BigInt, Julia may use shared GMP objects for small values (e.g. 0, 1).
+    # We clone every entry so that each matrix element owns its own mpz, and
+    # in-place MPZ.*! operations (e.g. MPZ.add!, MPZ.mul!) cannot corrupt shared state.
+    Bmat .= clone_bigint.(Bmat)  # make every element an independent BigInt/mpz
+    B⃗ = [dot((@view Q̃[:, j]), (@view Q̃[:, j])) for j in axes(Q̃, 2)]
+    return GSOData(Bmat, B⃗, Q̃, R̃)
 end
 
 function partial_size_reduce!(g::GSOData{IType,FType}, i::Int, j::Int) where {IType,FType}
@@ -53,23 +80,25 @@ function partial_size_reduce!(g::GSOData{BigInt,BigFloat}, i::Int, j::Int)
     end
     μ_ij = g.R[i, j]
     q = fplll_round(μ_ij)
-    iszero(q) && return g
-    negq::BigInt = -q
-    negq_float::BigFloat = -BigFloat(q)
+    negq = round(BigInt, -q)
+    negq_float = -BigFloat(q)
     bi = @view g.B[:, i]
     bj = @view g.B[:, j]
 
     # BigInt 部分は MPZ の in-place 演算でアロケーションを抑える
-    tmp = BigInt()  # ループ内で使い回すワーク領域
+    tmp = BigInt()
     @inbounds for r in eachindex(bi, bj)
-        # bj[r] += negq * bi[r] を in-place で実現
         MPZ.mul!(tmp, bi[r], negq)
-        MPZ.add!(bj[r], tmp)
+        MPZ.add!(bj[r], tmp)   # bj[r] はもう共有されていないので安全
     end
 
-    # BigFloat 部分は現状の高レベル演算のまま（必要なら MPFR で更に最適化可能）
+    # BigFloat 部分も MPFR の in-place 演算でアロケーションを抑える
+    # muladd(negq_float, g.R[l, i], g.R[l, j]) = negq_float * g.R[l, i] + g.R[l, j]
+    # を mpfr_fma で in-place 実現
     @inbounds for l = 1:i
-        g.R[l, j] = muladd(negq_float, g.R[l, i], g.R[l, j])
+        ccall((:mpfr_fma, MPFR.libmpfr), Int32,
+              (Ref{BigFloat}, Ref{BigFloat}, Ref{BigFloat}, Ref{BigFloat}, MPFR.MPFRRoundingMode),
+              g.R[l, j], negq_float, g.R[l, i], g.R[l, j], MPFR.rounding_raw(BigFloat))
     end
     return g
 end
@@ -192,6 +221,52 @@ function gsoupdate!(g::GSOData, k::Integer)
         t = μ[k, i]
         μ[k, i] = μ[k-1, i] - ν * t
         μ[k-1, i] = t + μ[k-1, k] * μ[k, i]
+    end
+    g
+end
+
+function gsoupdate!(g::GSOData{BigInt,BigFloat}, k::Integer)
+    k ≥ 2 || throw(ArgumentError("k should satisfy k ≥ 2, actual k=$(k)"))
+    for i in axes(g.B, 1)
+        # swap
+        g.B[i, k-1], g.B[i, k] = g.B[i, k], g.B[i, k-1]
+    end
+    μ = g.R
+    ν = μ[k-1, k]
+    B = g.B⃗[k] + ν ^ 2 * g.B⃗[k-1]
+    μ[k-1, k] = ν * g.B⃗[k-1] / B
+    g.B⃗[k] = g.B⃗[k] * g.B⃗[k-1] / B
+    g.B⃗[k-1] = B
+    for j = 1:(k-2)
+        # swap
+        μ[j, k-1], μ[j, k] = μ[j, k], μ[j, k-1]
+    end
+    n = size(μ, 2)
+    # BigFloat 部分も MPFR の in-place 演算でアロケーションを抑える
+    tmp1 = BigFloat(0)  # ワーク領域: ν * t 用
+    tmp2 = BigFloat(0)  # ワーク領域: μ[k-1, k] * μ[k, i] 用
+    t_val = BigFloat(0) # ワーク領域: 元の μ[k, i] のコピー
+    @inbounds for i = (k+1):n
+        # t_val = μ[k, i]（mpfr_set でコピーし、後続の更新で上書きされないようにする）
+        ccall((:mpfr_set, MPFR.libmpfr), Int32,
+              (Ref{BigFloat}, Ref{BigFloat}, MPFR.MPFRRoundingMode),
+              t_val, μ[k, i], MPFR.rounding_raw(BigFloat))
+        # tmp1 = ν * t
+        ccall((:mpfr_mul, MPFR.libmpfr), Int32,
+              (Ref{BigFloat}, Ref{BigFloat}, Ref{BigFloat}, MPFR.MPFRRoundingMode),
+              tmp1, ν, t_val, MPFR.rounding_raw(BigFloat))
+        # μ[k, i] = μ[k-1, i] - tmp1
+        ccall((:mpfr_sub, MPFR.libmpfr), Int32,
+              (Ref{BigFloat}, Ref{BigFloat}, Ref{BigFloat}, MPFR.MPFRRoundingMode),
+              μ[k, i], μ[k-1, i], tmp1, MPFR.rounding_raw(BigFloat))
+        # tmp2 = μ[k-1, k] * μ[k, i]
+        ccall((:mpfr_mul, MPFR.libmpfr), Int32,
+              (Ref{BigFloat}, Ref{BigFloat}, Ref{BigFloat}, MPFR.MPFRRoundingMode),
+              tmp2, μ[k-1, k], μ[k, i], MPFR.rounding_raw(BigFloat))
+        # μ[k-1, i] = t + tmp2
+        ccall((:mpfr_add, MPFR.libmpfr), Int32,
+              (Ref{BigFloat}, Ref{BigFloat}, Ref{BigFloat}, MPFR.MPFRRoundingMode),
+              μ[k-1, i], t_val, tmp2, MPFR.rounding_raw(BigFloat))
     end
     g
 end
