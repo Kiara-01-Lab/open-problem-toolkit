@@ -9,64 +9,56 @@ using Plots
 
 # ╔═╡ b7c86bc4-b9f8-11f0-b982-c9937aa8eaea
 struct Lattice2D
-	b1
-	b2
+    b1::Any
+    b2::Any
 end
 
 # ╔═╡ 203c3f08-4d17-43d4-bf20-1d48fb9b2f39
 function showlattice(lattice::Lattice2D)
-	vertices = []
-	for c1 in -100:100
-		for c2 in -100:100
-			v = c1 * lattice.b1 + c2 * lattice.b2
-			if -20 ≤ v[1] ≤ 20 && -20 ≤ v[2] ≤ 20
-				push!(vertices, v)
-			end
-		end
-	end
-	x = hcat(vertices...)[1, :]
-	y = hcat(vertices...)[2, :]
-	plt = plot(axis=false, aspectratio=:equal, legend=false)
-	scatter!(plt, x, y)
-	quiver!(
-		plt,
-		[0, 0], [0, 0], 
-		quiver=((lattice.b1[1], lattice.b2[1]), (lattice.b1[2], lattice.b2[2])),
-		color=:orange,
-	)
-	scatter!(plt, [0], [0.], xlim=[-20, 20], ylim=[-20, 20], color=:green)
+    vertices = []
+    for c1 = -100:100
+        for c2 = -100:100
+            v = c1 * lattice.b1 + c2 * lattice.b2
+            if -20 ≤ v[1] ≤ 20 && -20 ≤ v[2] ≤ 20
+                push!(vertices, v)
+            end
+        end
+    end
+    x = hcat(vertices...)[1, :]
+    y = hcat(vertices...)[2, :]
+    plt = plot(axis = false, aspectratio = :equal, legend = false)
+    scatter!(plt, x, y)
+    quiver!(
+        plt,
+        [0, 0],
+        [0, 0],
+        quiver = ((lattice.b1[1], lattice.b2[1]), (lattice.b1[2], lattice.b2[2])),
+        color = :orange,
+    )
+    scatter!(plt, [0], [0.0], xlim = [-20, 20], ylim = [-20, 20], color = :green)
 end
 
 # ╔═╡ d8597876-842e-4307-acdc-f960f5fa95ce
-Lattice2D(
-	[2, -1],
-	[2, 4]
-) |> showlattice
+Lattice2D([2, -1], [2, 4]) |> showlattice
 
 # ╔═╡ 0e4e923b-8bc8-4ded-b847-eb1949f80a23
 let
-	C = [
-		18 8
-		1 1
-	]
-	Lattice2D(
-		C[:, 1],
-		C[:, 2]
-	) |> showlattice
+    C = [
+        18 8
+        1 1
+    ]
+    Lattice2D(C[:, 1], C[:, 2]) |> showlattice
 end
 
 # ╔═╡ 66259284-674f-4587-ba9e-61fceac843f5
 let
-	T = [
-		7 3
-		2 1
-	]
-	B = [2 2; -1 4]
-	C = B * T
-	Lattice2D(
-		C[:, 1],
-		C[:, 2]
-	) |> showlattice
+    T = [
+        7 3
+        2 1
+    ]
+    B = [2 2; -1 4]
+    C = B * T
+    Lattice2D(C[:, 1], C[:, 2]) |> showlattice
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001

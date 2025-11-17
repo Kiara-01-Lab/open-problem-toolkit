@@ -9,7 +9,7 @@ using DelimitedFiles
 
 # ╔═╡ 8bee8e64-4d46-410c-a505-6e03c829deca
 function latticegen(d, b)
-	str = read(`latticegen u $(d) $(b)`, String)
+    str = read(`latticegen u $(d) $(b)`, String)
     # 1) 先頭 [[ と末尾 ]] を削除
     s = replace(str, r"^\s*\[\[|\]\]\s*$" => "")
     # 2) ][（または ] [）を行区切り ; に
@@ -23,7 +23,7 @@ end
 
 # ╔═╡ d93c4eb9-bad7-486b-8b92-7e4fb866b4d8
 function fplll(d, b)
-	s = read(pipeline(`latticegen u $(d) $(b)`, `fplll -a lll -d 0.99`), String)
+    s = read(pipeline(`latticegen u $(d) $(b)`, `fplll -a lll -d 0.99`), String)
     # 1) 文字列中の "\n" を実際の改行に
     s = replace(s, "\\n" => "\n")
 
@@ -44,13 +44,13 @@ function fplll(d, b)
     # println(expr)
 
     mat = Matrix(transpose(eval(Meta.parse(expr))))
-	mat
+    mat
 end
 
 # ╔═╡ c77dd9eb-5984-46f2-97fb-ff35da341e64
 begin
-	d = 10
-	b = 10
+    d = 10
+    b = 10
 end
 
 # ╔═╡ aa37f260-99e2-489a-954d-aa9f34737e43

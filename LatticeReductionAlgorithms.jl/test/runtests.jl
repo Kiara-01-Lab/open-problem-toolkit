@@ -4,7 +4,7 @@ using LinearAlgebra
 using LatticeReductionAlgorithms: GSOData, LLL_reduce, BKZ_reduce!, MLLL_reduce!
 
 @testset "GSOData" begin
-    B = [
+    B = BigInt[
         5 2 3
         -3 -7 -10
         -7 -7 0
@@ -34,7 +34,7 @@ end
 
 @testset "LLL_reuce" begin
     @testset "Example 2.3.9 for δ = 0.75" begin
-        B = [
+        B = BigInt[
             9 8 3
             2 6 2
             7 1 6
@@ -49,7 +49,7 @@ end
     end
 
     @testset "Example 2.3.9 for δ = 0.99" begin
-        B = [
+        B = BigInt[
             9 8 3
             2 6 2
             7 1 6
@@ -64,7 +64,7 @@ end
     end
 
     @testset "Example 2.3.10 for δ = 0.9999999" begin
-        B = [
+        B = BigInt[
             -2 3 2 8
             7 -2 -8 -9
             7 6 -9 6
@@ -88,38 +88,38 @@ end
 end
 
 @testset "MLL_reduce!" begin
-	δ = 0.75
-	ℬ = [
-		388 -672 -689 -179 508
-		417 -73  379  96   -705
-		417 -121 724  -24  173
-		-86 944  653  978  -343
-	]
-	MLLL_reduce!(ℬ, δ)
-	expected = [
-		 -1   1  -1   3  0
-		  0  -1  -4  -1  0
-		 -1  -1   2  -3  0
-		  0  -3   0   2  0
-	]
-	@test ℬ == expected
-	@test det(ℬ[:, 1:minimum(size(ℬ))]) ≠ 0
+    δ = 0.75
+    ℬ = [
+        388 -672 -689 -179 508
+        417 -73 379 96 -705
+        417 -121 724 -24 173
+        -86 944 653 978 -343
+    ]
+    MLLL_reduce!(ℬ, δ)
+    expected = [
+        -1 1 -1 3 0
+        0 -1 -4 -1 0
+        -1 -1 2 -3 0
+        0 -3 0 2 0
+    ]
+    @test ℬ == expected
+    @test det(ℬ[:, 1:minimum(size(ℬ))]) ≠ 0
 
-	δ = 0.75
-	ℬ = [
-		-696  -760 552 -160 307  117
-		-186  -106 6   -439 -526 -94
-		661   -775 9   -544 862  472
-		-727   659 726  365 396  138
-	]
-	MLLL_reduce!(ℬ, δ)
-	@test ℬ == [
-		 1   0   0   0  0  0
-		 0   1  -1  -1  0  0
-		 0  -1   0  -1  0  0
-		 0   0   1  -1  0  0
-	]
-	@test det(ℬ[:, 1:minimum(size(ℬ))]) ≠ 0
+    δ = 0.75
+    ℬ = [
+        -696 -760 552 -160 307 117
+        -186 -106 6 -439 -526 -94
+        661 -775 9 -544 862 472
+        -727 659 726 365 396 138
+    ]
+    MLLL_reduce!(ℬ, δ)
+    @test ℬ == [
+        1 0 0 0 0 0
+        0 1 -1 -1 0 0
+        0 -1 0 -1 0 0
+        0 0 1 -1 0 0
+    ]
+    @test det(ℬ[:, 1:minimum(size(ℬ))]) ≠ 0
 end
 
 @testset "BKZ_reduce!" begin

@@ -20,115 +20,115 @@ struct GaussLagrange end
 
 # ╔═╡ 355d71c0-5c38-454e-bb42-093142125828
 function reducebasis!(::Type{GaussLagrange}, B)
-	if norm(@view B[:, 1]) > norm(@view B[:, 2])
-		# swap cols
-		B .= @view B[:, [2, 1]]
-	end
-	v_tmp = Vector{eltype(B)}(undef, length(@view B[:, 1]))
-	b1 = @view B[:, 1]
-	b2 = @view B[:, 2]
-	while true
-		if norm(b1) > norm(b2)
-			break
-		end
-		q = -round(Int, dot(b1, b2) / norm(b1)^2)
-		@. v_tmp = b2 + q * b1
-		@. b2 = b1
-		@. b1 = v_tmp
-	end
-	# swap cols
-	B .= @view B[:, [2, 1]]
-	return B
+    if norm(@view B[:, 1]) > norm(@view B[:, 2])
+        # swap cols
+        B .= @view B[:, [2, 1]]
+    end
+    v_tmp = Vector{eltype(B)}(undef, length(@view B[:, 1]))
+    b1 = @view B[:, 1]
+    b2 = @view B[:, 2]
+    while true
+        if norm(b1) > norm(b2)
+            break
+        end
+        q = -round(Int, dot(b1, b2) / norm(b1)^2)
+        @. v_tmp = b2 + q * b1
+        @. b2 = b1
+        @. b1 = v_tmp
+    end
+    # swap cols
+    B .= @view B[:, [2, 1]]
+    return B
 end
 
 # ╔═╡ e7ccc1d8-9a8d-11f0-364f-8bc51dbac3b3
 let
-	# Example 2.1.7
-	b1 = [
-		-7
-		-4
-		-10
-	]
-	
-	b2 = [
-		9
-		5
-		12
-	]
-	B = hcat(b1, b2)
-	reducebasis!(GaussLagrange, B)
-	
-	@assert B == [
-		1 2
-		0 1
-		-2 2
-	]
+    # Example 2.1.7
+    b1 = [
+        -7
+        -4
+        -10
+    ]
 
-	# ガウス-ラグランジュ簡約基底の性質の確認
-	b1 = @view B[:, 1]
-	b2 = @view B[:, 2]
-	@assert norm(b1) ≤ norm(b2)
-	@assert norm(b2) ≤ norm(b1 - b2)
-	@assert norm(b2) ≤ norm(b1 + b2)
+    b2 = [
+        9
+        5
+        12
+    ]
+    B = hcat(b1, b2)
+    reducebasis!(GaussLagrange, B)
+
+    @assert B == [
+        1 2
+        0 1
+        -2 2
+    ]
+
+    # ガウス-ラグランジュ簡約基底の性質の確認
+    b1 = @view B[:, 1]
+    b2 = @view B[:, 2]
+    @assert norm(b1) ≤ norm(b2)
+    @assert norm(b2) ≤ norm(b1 - b2)
+    @assert norm(b2) ≤ norm(b1 + b2)
 end
 
 # ╔═╡ d86c591c-6cbc-49fe-9a25-8dcb54aa28dc
 let
-	# Example 2.1.7
-	b1 = [
-		230
-		-651
-		609
-		-366
-	]
-	
-	b2 = [
-		301
-		-852
-		797
-		-479
-	]
-	B = hcat(b1, b2)
-	reducebasis!(GaussLagrange, B)
-	@assert B == [
-		-1 2
-		-3 -3
-		-2 5
-		-1 -2
-	]
+    # Example 2.1.7
+    b1 = [
+        230
+        -651
+        609
+        -366
+    ]
 
-	# ガウス-ラグランジュ簡約基底の性質の確認
-	b1 = @view B[:, 1]
-	b2 = @view B[:, 2]
-	@assert norm(b1) ≤ norm(b2)
-	@assert norm(b2) ≤ norm(b1 - b2)
-	@assert norm(b2) ≤ norm(b1 + b2)
+    b2 = [
+        301
+        -852
+        797
+        -479
+    ]
+    B = hcat(b1, b2)
+    reducebasis!(GaussLagrange, B)
+    @assert B == [
+        -1 2
+        -3 -3
+        -2 5
+        -1 -2
+    ]
+
+    # ガウス-ラグランジュ簡約基底の性質の確認
+    b1 = @view B[:, 1]
+    b2 = @view B[:, 2]
+    @assert norm(b1) ≤ norm(b2)
+    @assert norm(b2) ≤ norm(b1 - b2)
+    @assert norm(b2) ≤ norm(b1 + b2)
 end
 
 # ╔═╡ 5c3a953c-1453-489f-b772-5eb84be98c9b
 let
-	# See 2dlattice_viewer.jl
-	b1 = [
-		18
-		1
-	]
-	
-	b2 = [
-		8
-		1
-	]
-	B = hcat(b1, b2)
-	reducebasis!(GaussLagrange, B)
-	@assert B == [
-		2  2
-		-1 4
-	] 
-	# ガウス-ラグランジュ簡約基底の性質の確認
-	b1 = @view B[:, 1]
-	b2 = @view B[:, 2]
-	@assert norm(b1) ≤ norm(b2)
-	@assert norm(b2) ≤ norm(b1 - b2)
-	@assert norm(b2) ≤ norm(b1 + b2)	
+    # See 2dlattice_viewer.jl
+    b1 = [
+        18
+        1
+    ]
+
+    b2 = [
+        8
+        1
+    ]
+    B = hcat(b1, b2)
+    reducebasis!(GaussLagrange, B)
+    @assert B == [
+        2 2
+        -1 4
+    ]
+    # ガウス-ラグランジュ簡約基底の性質の確認
+    b1 = @view B[:, 1]
+    b2 = @view B[:, 2]
+    @assert norm(b1) ≤ norm(b2)
+    @assert norm(b2) ≤ norm(b1 - b2)
+    @assert norm(b2) ≤ norm(b1 + b2)
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001

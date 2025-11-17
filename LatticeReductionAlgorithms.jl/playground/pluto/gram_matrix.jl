@@ -6,19 +6,19 @@ using InteractiveUtils
 
 # ╔═╡ 027ce7aa-7035-4834-8946-c50c76c300f2
 begin
-	using LinearAlgebra: det
-	using Symbolics: Num
+    using LinearAlgebra: det
+    using Symbolics: Num
 end
 
 # ╔═╡ 8f4fa28e-8e06-11f0-193e-05f93c095d14
 B = [
-	-9 -6 -8 7
-	-6 2 -2 -7
-	7 -4 7 -3
-	4 9 -8 6
-	2 -2 7 -9
-	3 1 2 1
-	-8 -8 5 9
+    -9 -6 -8 7
+    -6 2 -2 -7
+    7 -4 7 -3
+    4 9 -8 6
+    2 -2 7 -9
+    3 1 2 1
+    -8 -8 5 9
 ]
 
 # ╔═╡ 9f31b9c8-7a11-469d-b667-fb0ecb108ca1

@@ -6,8 +6,8 @@ using InteractiveUtils
 
 # ╔═╡ 91cf31ee-a3ed-11f0-2f3c-dfe4e6939bb4
 begin
-	using Test
-	using LinearAlgebra
+    using Test
+    using LinearAlgebra
 end
 
 # ╔═╡ 5d08efce-a966-40c8-88d7-760b0197ca0c
@@ -19,28 +19,28 @@ Gram-Schmidt の正規化しない直交化法のアルゴリズムを実装す�
 
 # ╔═╡ c38c7e40-2fce-40e2-bd1d-49ba62a5ac34
 B = [
-	5  2  3
-	-3 -7 -10
-	-7 -7  0
+    5 2 3
+    -3 -7 -10
+    -7 -7 0
 ]
 
 # ╔═╡ 80b29f37-eb9a-4b91-81bc-57bf1bd8bdb9
 begin
-	Q = Float64.(B)
-	R = zeros(size(B))
-	for i in axes(R, 1)
-		R[i, i] = 1
-	end
-	for j in axes(R, 2)
-		Q[:, j] .= @view B[:, j]
-		for i in 1:(j-1)
-			b_i_ast = @view Q[:, i]
-			b_j = @view B[:, j]
-			μ_ij = dot(b_j, b_i_ast)/dot(b_i_ast, b_i_ast)
-			R[i, j] = μ_ij
-			Q[:, j] .-= μ_ij .* b_i_ast
-		end
-	end
+    Q = Float64.(B)
+    R = zeros(size(B))
+    for i in axes(R, 1)
+        R[i, i] = 1
+    end
+    for j in axes(R, 2)
+        Q[:, j] .= @view B[:, j]
+        for i = 1:(j-1)
+            b_i_ast = @view Q[:, i]
+            b_j = @view B[:, j]
+            μ_ij = dot(b_j, b_i_ast)/dot(b_i_ast, b_i_ast)
+            R[i, j] = μ_ij
+            Q[:, j] .-= μ_ij .* b_i_ast
+        end
+    end
 end
 
 # ╔═╡ 1e9001bb-3e19-459c-8504-a15f675769cb
@@ -56,24 +56,24 @@ GSO 行列の性質の確認をする
 
 # ╔═╡ 34a536bf-58c6-46f3-8ddb-82d97ef4a4fd
 @testset "直交性" begin
-	for i = axes(R, 2)
-		for j in (i+1):size(R, 2)
-			@test abs(dot(Q[:, i], Q[:, j])) < 1e-13
-		end
-	end
+    for i in axes(R, 2)
+        for j = (i+1):size(R, 2)
+            @test abs(dot(Q[:, i], Q[:, j])) < 1e-13
+        end
+    end
 end
 
 # ╔═╡ ab36b712-f030-40dd-b8b2-26020ba12054
 @testset "norm" begin
-	for i = axes(R, 2)
-		@test norm(Q[:, i]) ≤ norm(B[:, i])
-	end
+    for i in axes(R, 2)
+        @test norm(Q[:, i]) ≤ norm(B[:, i])
+    end
 end
 
 # ╔═╡ 269661a9-95ce-4151-bd69-d5406986b56d
 @testset "volume" begin
-	volL = abs(det(B))
-	@test volL ≈ prod(norm(Q[:, i]) for i in axes(R, 2))
+    volL = abs(det(B))
+    @test volL ≈ prod(norm(Q[:, i]) for i in axes(R, 2))
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001

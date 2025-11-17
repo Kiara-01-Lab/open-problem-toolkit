@@ -32,14 +32,17 @@ function partial_size_reduce!(g::GSOData{IType,FType}, i::Int, j::Int) where {IT
         throw(ArgumentError("should satisfy i < j, actual i=$(i), j=$(j)"))
     end
     μ_ij = g.R[i, j]
-    q = fplll_round(μ_ij)
+    q = fplll_round(IType, μ_ij)
+    negq = -q
     bi = @view g.B[:, i]
     bj = @view g.B[:, j]
-    @. bj -= q * bi
-    for l = 1:i
-        g.R[l, j] -= q * g.R[l, i]
+    @inbounds for r in eachindex(bi, bj)
+        bj[r] = muladd(negq, bi[r], bj[r])
     end
-    g
+    @inbounds for l = 1:i
+        g.R[l, j] = muladd(negq, g.R[l, i], g.R[l, j])
+    end
+    return g
 end
 
 @inline function iszerovec(v)
@@ -50,12 +53,12 @@ end
     r
 end
 
-function fplll_round(μ)
+function fplll_round(T, μ)
     # fplll の最近整数関数に合わせる: 最近接（0.5 はゼロから遠い側に丸め）
     if μ >= zero(μ)
-        q_i = floor(BigInt, μ + (one(μ) / 2))
+        q_i = floor(T, μ + (one(μ) / 2))
     else
-        q_i = ceil(BigInt, μ - (one(μ) / 2))
+        q_i = ceil(T, μ - (one(μ) / 2))
     end
 end
 
@@ -68,7 +71,7 @@ function partial_size_reduce!(
 ) where {T}
     (1 ≤ i < k) || return
     μ = R[i, k]
-    m = fplll_round(μ)
+    m = fplll_round(T, μ)
     m == 0 && return
     B[:, k] .-= m .* B[:, i]
     @inbounds begin
@@ -117,7 +120,7 @@ function ENUM_reduce(
                 σ[i, k] = σ[i+1, k] + μ[k, i] * v[i]
             end
             c[k] = -σ[k+1, k]
-            v[k] = fplll_round(c[k])
+            v[k] = fplll_round(T, c[k])
             w[k] = 1
         else
             k += 1
@@ -367,13 +370,21 @@ function BKZ_reduce!(B::AbstractMatrix, β::Integer, δ::Real)
 
         πₖv_norm2 = 0
         for i = k:n
-            πₖv_norm2 += dot(v, g.Q[:, i]) ^ 2 / dot(g.Q[:, i], g.Q[:, i])
+            πₖv_norm2 += dot(v, @view(g.Q[:, i])) ^ 2 / dot(@view(g.Q[:, i]), @view(g.Q[:, i]))
         end
         if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + 0.00001
             z = 0
-            Bsub = hcat((B[:, i] for i = 1:(k-1))..., v, (B[:, i] for i = k:h)...)
+            # Bsub = hcat(((@view B[:, i]) for i = 1:(k-1))..., v, ((@view B[:, i]) for i = k:h)...)
+            Bsub = similar(B, size(B, 1), h+1)
+            for i = 1:(k-1)
+                Bsub[:, i] .= @view(B[:, i])
+            end
+            Bsub[:, k] .= v
+            for (i, idx) in enumerate(k:h)
+                Bsub[:, k+i] .= @view(B[:, idx])
+            end
             MLLL_reduce!(Bsub, δ)
-            B[:, 1:h] .= Bsub[:, 1:h]
+            B[:, 1:h] .= @view Bsub[:, 1:h]
         else
             z += 1
             g′ = LLL_reduce((@view B[:, 1:h]), δ)

@@ -18,22 +18,22 @@ GSO ベクトルは QR 分解をして得られた $Q$ に対して $R$ の対�
 
 # ╔═╡ c38c7e40-2fce-40e2-bd1d-49ba62a5ac34
 B = [
-	5  2  3
-	-3 -7 -10
-	-7 -7  0
+    5 2 3
+    -3 -7 -10
+    -7 -7 0
 ]
 
 # ╔═╡ 80b29f37-eb9a-4b91-81bc-57bf1bd8bdb9
 begin
-	F = qr(B)
-	R̃ = F.R
-	for i in axes(R̃, 1)
-		dᵢ = R̃[i, i]
-		for j in i:size(R̃, 2)
-			R̃[i, j] /= dᵢ
-		end
-	end
-	R̃
+    F = qr(B)
+    R̃ = F.R
+    for i in axes(R̃, 1)
+        dᵢ = R̃[i, i]
+        for j = i:size(R̃, 2)
+            R̃[i, j] /= dᵢ
+        end
+    end
+    R̃
 end
 
 # ╔═╡ 2fce077d-1094-4a7c-83b8-1d3b7c91501c

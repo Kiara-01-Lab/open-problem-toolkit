@@ -6,8 +6,8 @@ using InteractiveUtils
 
 # ╔═╡ 6206c1ac-a4a6-11f0-25cf-17f96340494a
 begin
-	using Test
-	using LinearAlgebra
+    using Test
+    using LinearAlgebra
 end
 
 # ╔═╡ a0b75700-73b0-4907-b827-5a884936ea38
@@ -17,130 +17,128 @@ md"""
 
 # ╔═╡ 09c9a0f6-61bb-4858-96be-3fd27c0a25ce
 struct GSOData
-	B::Matrix{Float64}
-	Q::Matrix{Float64}
-	R::Matrix{Float64}
+    B::Matrix{Float64}
+    Q::Matrix{Float64}
+    R::Matrix{Float64}
 end
 
 # ╔═╡ fea0c5e0-94d8-4657-877c-3ac1d037e8ee
 function gso(B::AbstractMatrix)
-	F = qr(B)
-	R̃ = F.R
-	for i in axes(R̃, 1)
-		dᵢ = R̃[i, i]
-		for j in i:size(R̃, 2)
-			R̃[i, j] /= dᵢ
-		end
-	end
-	Q̃ = F.Q * Diagonal(F.R)
-	return GSOData(B, Q̃, R̃)
+    F = qr(B)
+    R̃ = F.R
+    for i in axes(R̃, 1)
+        dᵢ = R̃[i, i]
+        for j = i:size(R̃, 2)
+            R̃[i, j] /= dᵢ
+        end
+    end
+    Q̃ = F.Q * Diagonal(F.R)
+    return GSOData(B, Q̃, R̃)
 end
 
 # ╔═╡ 1bc2d62b-28f7-4642-9aa1-4ea39f02cd97
 function partial_size_reduce!(d::GSOData, i::Int, j::Int)
-	if !(i < j)
-		throw(
-			ArgumentError("should satisfy i < j, actual i=$(i), j=$(j)")
-		)
-	end
-	μ_ij = d.R[i, j]
-	q = round(Int, μ_ij)
-	bi = @view d.B[:, i]
-	bj = @view d.B[:, j]
-	@. bj -= q * bi
-	for l in 1:i
-		d.R[l, j] -= q * d.R[l, i]
-	end
-	d
+    if !(i < j)
+        throw(ArgumentError("should satisfy i < j, actual i=$(i), j=$(j)"))
+    end
+    μ_ij = d.R[i, j]
+    q = round(Int, μ_ij)
+    bi = @view d.B[:, i]
+    bj = @view d.B[:, j]
+    @. bj -= q * bi
+    for l = 1:i
+        d.R[l, j] -= q * d.R[l, i]
+    end
+    d
 end
 
 # ╔═╡ f179a6a5-4e77-4b50-99c6-411166870b37
 function size_reduce!(d::GSOData)
-	R = d.R
-	for j in 2:size(R, 2)
-		for i in (j-1):-1:1
-			partial_size_reduce!(d, i, j)
-		end
-	end
-	d
+    R = d.R
+    for j = 2:size(R, 2)
+        for i = (j-1):-1:1
+            partial_size_reduce!(d, i, j)
+        end
+    end
+    d
 end
 
 # ╔═╡ 5a53f73c-c9f8-480e-a646-6e13e5fa162e
 @testset "partial_size_reduce!" begin
-	B = [
-		5  2  3
-		-3 -7 -10
-		-7 -7  0
-	]
-	g = gso(B)
-	g = partial_size_reduce!(g, 1, 2)
-	@test g.B == [
-		5  -3 3
-		-3 -4 -10
-		-7 -0 0
-	]
-	@test g.R ≈ [
-		1.0 -0.03614457831325302 0.5421686746987951
-		0.0 1.0 1.3107454017424978
-		0.0 0.0 1.0
-	]
-	g = partial_size_reduce!(g, 2, 3)
-	@test g.B == [
-		5   -3 6
-		-3  -4 -6
-		-7  0   0
-	]
-	g = partial_size_reduce!(g, 1, 3)
-	@test g.B == [
-		5  -3 1
-		-3 -4 -3
-		-7 0 7
-	]
-	# size reduced
-	for i in 1:size(g.R, 1)
-		for j in (i+1):size(g.R, 2)
-			@test abs(g.R[i, j]) ≤ 0.5
-		end
-	end
+    B = [
+        5 2 3
+        -3 -7 -10
+        -7 -7 0
+    ]
+    g = gso(B)
+    g = partial_size_reduce!(g, 1, 2)
+    @test g.B == [
+        5 -3 3
+        -3 -4 -10
+        -7 -0 0
+    ]
+    @test g.R ≈ [
+        1.0 -0.03614457831325302 0.5421686746987951
+        0.0 1.0 1.3107454017424978
+        0.0 0.0 1.0
+    ]
+    g = partial_size_reduce!(g, 2, 3)
+    @test g.B == [
+        5 -3 6
+        -3 -4 -6
+        -7 0 0
+    ]
+    g = partial_size_reduce!(g, 1, 3)
+    @test g.B == [
+        5 -3 1
+        -3 -4 -3
+        -7 0 7
+    ]
+    # size reduced
+    for i = 1:size(g.R, 1)
+        for j = (i+1):size(g.R, 2)
+            @test abs(g.R[i, j]) ≤ 0.5
+        end
+    end
 end
 
 # ╔═╡ 34a2ba4d-eb59-4bbf-8f89-200035028a44
 @testset "partial_size_reduce!" begin
-	B = [
-		5  2  3
-		-3 -7 -10
-		-7 -7  0
-	]
-	g = gso(B)
-	g = size_reduce!(g)
-	# size reduced
-	@test g.B == [
-		5  -3 1
-		-3 -4 -3
-		-7 0 7
-	]
-	for i in 1:size(g.R, 1)
-		for j in (i+1):size(g.R, 2)
-			@test abs(g.R[i, j]) ≤ 0.5
-		end
-	end
+    B = [
+        5 2 3
+        -3 -7 -10
+        -7 -7 0
+    ]
+    g = gso(B)
+    g = size_reduce!(g)
+    # size reduced
+    @test g.B == [
+        5 -3 1
+        -3 -4 -3
+        -7 0 7
+    ]
+    for i = 1:size(g.R, 1)
+        for j = (i+1):size(g.R, 2)
+            @test abs(g.R[i, j]) ≤ 0.5
+        end
+    end
 end
 
 # ╔═╡ 0aab64dc-671d-47e9-8a30-9a05653a41b2
 @testset "GSO vector is invariant" begin
-	B = [
-		5  2  3
-		-3 -7 -10
-		-7 -7  0
-	]
-	Q = gso(B).Q
-	B_reduced = [
-		5  -3 1
-		-3 -4 -3
-		-7 0 7
-	]
-	Q_reduced = gso(B_reduced).Q
-	@test isapprox(Q, Q_reduced, atol=1e-14)
+    B = [
+        5 2 3
+        -3 -7 -10
+        -7 -7 0
+    ]
+    Q = gso(B).Q
+    B_reduced = [
+        5 -3 1
+        -3 -4 -3
+        -7 0 7
+    ]
+    Q_reduced = gso(B_reduced).Q
+    @test isapprox(Q, Q_reduced, atol = 1e-14)
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
