@@ -33,7 +33,7 @@ function partial_size_reduce!(g::GSOData{IType,FType}, i::Int, j::Int) where {IT
         throw(ArgumentError("should satisfy i < j, actual i=$(i), j=$(j)"))
     end
     μ_ij = g.R[i, j]
-    q = fplll_round(IType, μ_ij)
+    q = fplll_round(μ_ij)
     negq::IType = -q
     negq_float::FType = -FType(q)
     bi = @view g.B[:, i]

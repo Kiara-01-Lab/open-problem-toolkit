@@ -32,7 +32,7 @@ using LatticeReductionAlgorithms: GSOData, LLL_reduce, BKZ_reduce!, MLLL_reduce!
     end
 end
 
-@testset "LLL_reuce" begin
+@testset "LLL_reuce BigInt" begin
     @testset "Example 2.3.9 for δ = 0.75" begin
         B = BigInt[
             9 8 3
@@ -65,6 +65,61 @@ end
 
     @testset "Example 2.3.10 for δ = 0.9999999" begin
         B = BigInt[
+            -2 3 2 8
+            7 -2 -8 -9
+            7 6 -9 6
+            -5 -1 -7 -4
+        ]
+        δ = 0.9999999
+        g = LLL_reduce(B, δ)
+        @test g.B == [
+            2 2 -2 3
+            3 0 2 -2
+            1 -2 3 6
+            1 -4 -3 -1
+        ]
+
+        α = 4 / (4δ - 1)
+        n = size(B, 2)
+        volL = abs(det(B))
+        @test norm(g.B[:, 1]) ≤ α ^ ((n - 1)/4) * volL ^ (1/n)
+        @test prod(norm(g.B[:, i]) for i = 1:n) ≤ α ^ (n * (n - 1)/4) * volL
+    end
+end
+
+@testset "LLL_reuce Int" begin
+    @testset "Example 2.3.9 for δ = 0.75" begin
+        B = Int[
+            9 8 3
+            2 6 2
+            7 1 6
+        ]
+        δ = 0.75
+        g = LLL_reduce(B, δ)
+        @test g.B == [
+            -1 2 3
+            4 6 -2
+            -6 0 -5
+        ]
+    end
+
+    @testset "Example 2.3.9 for δ = 0.99" begin
+        B = Int[
+            9 8 3
+            2 6 2
+            7 1 6
+        ]
+        δ = 0.99
+        g = LLL_reduce(B, δ)
+        @test g.B == [
+            6 3 2
+            0 -2 6
+            1 -5 0
+        ]
+    end
+
+    @testset "Example 2.3.10 for δ = 0.9999999" begin
+        B = Int[
             -2 3 2 8
             7 -2 -8 -9
             7 6 -9 6
@@ -122,7 +177,7 @@ end
     @test det(ℬ[:, 1:minimum(size(ℬ))]) ≠ 0
 end
 
-@testset "BKZ_reduce!" begin
+@testset "BKZ_reduce! BigInt" begin
     B = BigInt[
         63 74 93 93 33
         -14 -20 -46 11 -93
@@ -134,6 +189,44 @@ end
     @test B[:, 1] == [0, 1, 1, 0, 1]
 
     B = BigInt[
+        -79 43 -1 -58 84 -1 19 -58 17 93
+        35 -64 -97 -38 -61 34 16 -17 31 -6
+        31 -37 -91 87 93 58 52 99 78 -7
+        83 -31 -43 42 -67 -38 32 93 53 -12
+        -66 -27 19 94 3 29 -20 -49 40 79
+        35 -7 -21 -83 94 67 55 -53 -22 -40
+        -32 -42 -65 66 31 -18 94 24 -39 27
+        46 21 -36 -69 27 15 -34 51 7 -95
+        21 16 34 -2 -60 -75 4 5 70 98
+        2 16 -55 -30 98 -16 80 93 -98 20
+    ]
+    BKZ_reduce!(B, 3, 0.75)
+    @test B[:, 1] == [
+        -2
+        14
+        -8
+        -5
+        -11
+        -9
+        -5
+        5
+        -18
+        21
+    ]
+end
+
+@testset "BKZ_reduce! Int" begin
+    B = Int[
+        63 74 93 93 33
+        -14 -20 -46 11 -93
+        -1 23 -19 13 12
+        84 -32 0 60 57
+        61 -52 -63 52 -2
+    ]
+    BKZ_reduce!(B, 3, 0.75)
+    @test B[:, 1] == [0, 1, 1, 0, 1]
+
+    B = Int[
         -79 43 -1 -58 84 -1 19 -58 17 93
         35 -64 -97 -38 -61 34 16 -17 31 -6
         31 -37 -91 87 93 58 52 99 78 -7
