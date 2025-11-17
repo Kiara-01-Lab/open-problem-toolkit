@@ -501,9 +501,9 @@ end
 
 # ╔═╡ 4c53633b-e60d-437f-88a5-3ada891280d9
 let
-	d = 10
-	b = 10
-	β = 4
+	d = 40
+	b = 100
+	β = 2
 	setprecision(4096) do
 		B = latticegen(d, b)
 		refB = fplll_bkz(d, b, β)

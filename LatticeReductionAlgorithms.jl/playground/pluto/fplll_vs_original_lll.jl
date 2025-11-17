@@ -191,12 +191,11 @@ begin
 	setprecision(4096) do
 		B = Matrix{BigInt}(latticegen(d, b))
 		@time g = LLL_reduce(B, 0.99)
-		fplllB = fplll(d, b)
-		@time fplllB
-		display("g.B == fplllB: $(g.B == fplllB)")
-		display(g.B - fplllB)
-		display(g.B)
-		display(fplllB)
+		refB = fplll(d, b)
+		@time refB
+		T = B \ refB
+		T = round.(BigInt, T)
+		@assert det(T) in [-1, 1]
 	end
 end
 
