@@ -552,7 +552,7 @@ end
 let
 	d = 40
 	b = 100
-	β = 2
+	β = 20
 	δ = 0.99
 
 	setprecision(512) do
