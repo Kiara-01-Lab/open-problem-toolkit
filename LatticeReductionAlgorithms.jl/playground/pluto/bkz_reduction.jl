@@ -373,7 +373,7 @@ function find_svp_by_enum(B, k, l)
 end
 
 # ╔═╡ fad8d91f-0216-4712-ac84-cb15cf5cb905
-function BKZ_reduction!(B::AbstractMatrix, β::Integer, δ::Real)
+function BKZ_reduce!(B::AbstractMatrix, β::Integer, δ::Real)
 	g = LLL_reduce(B, δ)
 	B .= g.B
 	n = size(B, 2)
@@ -421,7 +421,7 @@ let
 		84  -32   0 60 57
 		61  -52 -63 52 -2
 	]
-	BKZ_reduction!(B, 3, 0.75)
+	BKZ_reduce!(B, 3, 0.75)
 	B
 end 
 
@@ -440,7 +440,7 @@ let
 		      2   16  -55  -30   98  -16   80   93  -98   20
 	]
 	@info minimum([norm(B[:, i]) for i in axes(B, 2)])
-	BKZ_reduction!(B, 3, 0.75)
+	BKZ_reduce!(B, 3, 0.75)
 	norm(B[:, 1])
 	B[:, 1]
 end
@@ -455,7 +455,7 @@ let
 	]
 	δ = 0.9999999
 	β = 2
-	BKZ_reduction!(B, β, δ)
+	BKZ_reduce!(B, β, δ)
 	B
 end
 
@@ -508,7 +508,7 @@ let
 		B = latticegen(d, b)
 		refB = fplll_bkz(d, b, β)
 		δ = 0.99
-		BKZ_reduction!(B, β, δ)
+		BKZ_reduce!(B, β, δ)
 		abs.(B - refB)
 	end
 end
