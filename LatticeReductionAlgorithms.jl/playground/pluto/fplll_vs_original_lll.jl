@@ -130,7 +130,7 @@ function LLL_reduce(B::AbstractMatrix, δ::Real)
 			#@info "partial_size_reduce!" j k
 			partial_size_reduce!(g, j, k)
 		end
-		if g.B⃗[k] ≥ (δ - g.R[k-1, k] ^ 2) * g.B⃗[k-1]
+		if g.B⃗[k] ⪆ (δ - g.R[k-1, k] ^ 2) * g.B⃗[k-1]
 			#@info "k+=1"
 			# Lovász 条件を満たす
 			k += 1
@@ -186,19 +186,19 @@ end
 
 # ╔═╡ 98765d50-9c42-45f0-8896-d8fef005d03e
 begin
-	d = 20
+	d = 10
 	b = 256
-	B = Matrix{BigInt}(latticegen(d, b))
-	@time g = LLL_reduce(B, 0.99)
-	@time fplll(d, b)
-	display("g.B == fplll(d, b): $(g.B == fplll(d, b))")
-	display(g.B - fplll(d, b))
-	display(g.B)
-	display(fplll(d, b))
+	setprecision(4096) do
+		B = Matrix{BigInt}(latticegen(d, b))
+		@time g = LLL_reduce(B, 0.99)
+		fplllB = fplll(d, b)
+		@time fplllB
+		display("g.B == fplllB: $(g.B == fplllB)")
+		display(g.B - fplllB)
+		display(g.B)
+		display(fplllB)
+	end
 end
-
-# ╔═╡ 7352909e-dd74-4441-bead-157efe7da1f1
-
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -297,6 +297,5 @@ version = "5.15.0+0"
 # ╠═15f48411-c9dc-4b40-a04b-abb134f41cc0
 # ╠═6295c9c1-9203-4263-8a22-925f3740fbe8
 # ╠═98765d50-9c42-45f0-8896-d8fef005d03e
-# ╠═7352909e-dd74-4441-bead-157efe7da1f1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

@@ -399,7 +399,7 @@ function BKZ_reduction!(B::AbstractMatrix, β::Integer, δ::Real)
 		for i = k:n
 			πₖv_norm2 += dot(v, g.Q[:, i]) ^ 2 / dot(g.Q[:, i], g.Q[:, i])
 		end
-		if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + 0.001
+		if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + 0.0001
 			z = 0
 			Bsub = hcat((B[:, i] for i in 1:k-1)..., v, (B[:, i] for i in k:h)...)
 			MLLL_reduce!(Bsub, δ)
@@ -442,6 +442,7 @@ let
 	@info minimum([norm(B[:, i]) for i in axes(B, 2)])
 	BKZ_reduction!(B, 3, 0.75)
 	norm(B[:, 1])
+	B[:, 1]
 end
 
 # ╔═╡ e22c6910-e1a9-473a-a2f0-fe2aacb9dfb1
@@ -500,14 +501,16 @@ end
 
 # ╔═╡ 4c53633b-e60d-437f-88a5-3ada891280d9
 let
-	d = 9
+	d = 10
 	b = 10
 	β = 4
-	B = latticegen(d, b)
-	refB = fplll_bkz(d, b, β)
-	δ = 0.99
-	BKZ_reduction!(B, β, δ)
-	abs.(B - refB)
+	setprecision(4096) do
+		B = latticegen(d, b)
+		refB = fplll_bkz(d, b, β)
+		δ = 0.99
+		BKZ_reduction!(B, β, δ)
+		abs.(B - refB)
+	end
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
