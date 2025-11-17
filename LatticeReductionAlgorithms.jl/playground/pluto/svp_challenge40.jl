@@ -502,19 +502,65 @@ begin
 	
 	    mat = Matrix(transpose(eval(Meta.parse(expr))))
 	end
+
+	function fplll_lll(δ)
+		s = read(
+			pipeline(
+				`cat svpchallengedim40seed0.txt`, 
+				`fplll -a lll -d $(δ)`), 
+			String
+		)
+	    # 1) 文字列中の "\n" を実際の改行に
+	    s = replace(s, "\\n" => "\n")
+	
+	    # 2) ][（ ] [ 含む）を行区切り ; に
+	    s = replace(s, r"\]\s*\[" => " ; ")
+	
+	    # 3) 残る全ての [ と ] を削除（余計な ] があっても消える）
+	    s = replace(s, ['[', ']'] => ' ')
+	
+	    # 4) 余分な空白を正規化
+	    s = replace(s, r"[ \t]+" => " ")
+	    s = strip(s)
+	
+	    # 5) 1 組の角括弧で包んで Julia の行列リテラルに
+	    expr = "[" * s * "]"
+	
+	    # デバッグ用に確認したい場合:
+	    # println(expr)
+	
+	    mat = Matrix(transpose(eval(Meta.parse(expr))))
+	end
+end
+
+# ╔═╡ 40583a09-7444-4719-9330-7168d6959887
+let
+	δ = 0.99
+	setprecision(2048) do
+		B = svpchallengedim40seed0()
+		@time refB = fplll_lll(δ)
+		@time LLL_reduce(B, δ)
+		@show Float64(norm(refB[:, 1]))
+		@show Float64(norm(B[:, 1]))
+		T = B \ refB
+		T = round.(BigInt, T)
+		@assert det(T) in [-1, 1]
+	end
 end
 
 # ╔═╡ 4c53633b-e60d-437f-88a5-3ada891280d9
 let
 	d = 40
 	b = 100
-	β = 3
+	β = 2
 	δ = 0.99
 
-	setprecision(4096) do
+	setprecision(512) do
 		B = svpchallengedim40seed0()
-		refB = fplll_bkz(β, δ)
-		BKZ_reduction!(B, β, δ)
+		@time refB = fplll_bkz(β, δ)
+		@time BKZ_reduction!(B, β, δ)
+		@show Float64(norm(refB[:, 1]))
+		@show Float64(norm(B[:, 1]))
 		T = B \ refB
 		T = round.(BigInt, T)
 		@assert det(T) in [-1, 1]
@@ -637,6 +683,7 @@ version = "5.15.0+0"
 # ╠═dc1f8ffa-4fca-4d68-8053-a17e7aab3586
 # ╠═e22c6910-e1a9-473a-a2f0-fe2aacb9dfb1
 # ╠═4c47736f-4125-482d-a735-c2492219f652
+# ╠═40583a09-7444-4719-9330-7168d6959887
 # ╠═4c53633b-e60d-437f-88a5-3ada891280d9
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
