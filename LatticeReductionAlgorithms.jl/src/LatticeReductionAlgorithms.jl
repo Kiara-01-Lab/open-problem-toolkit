@@ -5,6 +5,7 @@ using OffsetArrays
 
 using LinearAlgebra
 using OffsetArrays: OffsetVector
+using Base.GMP: MPZ
 
 struct GSOData{I<:Integer,F<:Real}
     B::Matrix{I}
@@ -33,14 +34,42 @@ function partial_size_reduce!(g::GSOData{IType,FType}, i::Int, j::Int) where {IT
     end
     μ_ij = g.R[i, j]
     q = fplll_round(IType, μ_ij)
-    negq = -q
+    negq::IType = -q
+    negq_float::FType = -FType(q)
     bi = @view g.B[:, i]
     bj = @view g.B[:, j]
     @inbounds for r in eachindex(bi, bj)
         bj[r] = muladd(negq, bi[r], bj[r])
     end
     @inbounds for l = 1:i
-        g.R[l, j] = muladd(negq, g.R[l, i], g.R[l, j])
+        g.R[l, j] = muladd(negq_float, g.R[l, i], g.R[l, j])
+    end
+    return g
+end
+
+function partial_size_reduce!(g::GSOData{BigInt,BigFloat}, i::Int, j::Int)
+    if !(i < j)
+        throw(ArgumentError("should satisfy i < j, actual i=$(i), j=$(j)"))
+    end
+    μ_ij = g.R[i, j]
+    q = fplll_round(μ_ij)
+    iszero(q) && return g
+    negq::BigInt = -q
+    negq_float::BigFloat = -BigFloat(q)
+    bi = @view g.B[:, i]
+    bj = @view g.B[:, j]
+
+    # BigInt 部分は MPZ の in-place 演算でアロケーションを抑える
+    tmp = BigInt()  # ループ内で使い回すワーク領域
+    @inbounds for r in eachindex(bi, bj)
+        # bj[r] += negq * bi[r] を in-place で実現
+        MPZ.mul!(tmp, bi[r], negq)
+        MPZ.add!(bj[r], tmp)
+    end
+
+    # BigFloat 部分は現状の高レベル演算のまま（必要なら MPFR で更に最適化可能）
+    @inbounds for l = 1:i
+        g.R[l, j] = muladd(negq_float, g.R[l, i], g.R[l, j])
     end
     return g
 end
@@ -53,13 +82,11 @@ end
     r
 end
 
-function fplll_round(T, μ)
-    # fplll の最近整数関数に合わせる: 最近接（0.5 はゼロから遠い側に丸め）
-    if μ >= zero(μ)
-        q_i = floor(T, μ + (one(μ) / 2))
-    else
-        q_i = ceil(T, μ - (one(μ) / 2))
-    end
+function fplll_round(μ)
+    # fplll の最近整数関数に合わせる:
+    # 最近接（0.5 はゼロから遠い側に丸め）を
+    # Julia の RoundNearestTiesAway で実現
+    round(μ, RoundNearestTiesAway)
 end
 
 
@@ -71,7 +98,7 @@ function partial_size_reduce!(
 ) where {T}
     (1 ≤ i < k) || return
     μ = R[i, k]
-    m = fplll_round(T, μ)
+    m = fplll_round(μ)
     m == 0 && return
     B[:, k] .-= m .* B[:, i]
     @inbounds begin
@@ -120,7 +147,7 @@ function ENUM_reduce(
                 σ[i, k] = σ[i+1, k] + μ[k, i] * v[i]
             end
             c[k] = -σ[k+1, k]
-            v[k] = fplll_round(T, c[k])
+            v[k] = fplll_round(c[k])
             w[k] = 1
         else
             k += 1
