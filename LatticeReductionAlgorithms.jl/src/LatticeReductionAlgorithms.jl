@@ -14,43 +14,17 @@ struct GSOData{I<:Integer,F<:Real}
 end
 
 function GSOData(B::AbstractMatrix)
-    # Perform QR on a BigFloat copy with sufficient precision to avoid Inf/NaN
-    # caused by converting very large BigInts to Float64.
-    maxbits = mapreduce(x -> ndigits(abs(x); base=2), max, B; init=0)
-    prec_bits = max(256, 2 * maxbits + 32)
-    # Uniformly scale B by a power-of-two so QR stays in a safe exponent range.
-    # This preserves μ and all ratios used by the algorithms.
-    scale_pow = max(0, maxbits - 256)
-    Ffac = setprecision(prec_bits) do
-        scale = ldexp(BigFloat(1), -scale_pow)
-        qr(scale .* BigFloat.(B))
-    end
-    Rfact = Matrix(Ffac.R)
-    if any(x -> !isfinite(x), Rfact)
-        println("[debug] R from QR contains non-finite entries; sample R[1,2]=", Rfact[1, min(2, size(Rfact,2))])
-        println("[debug] R diag = ", collect(diag(Rfact)))
-    end
-    # Preserve original diagonal for Gram-Schmidt lengths and Q scaling
-    d = diag(Rfact)
-    # Build μ (size-reduction coefficients) safely without in-place mutation
-    μ = copy(Rfact)
-    for i in axes(μ, 1)
-        dᵢ = d[i]
-        if dᵢ == 0 || dᵢ != dᵢ # guard zero/NaN
-            # Zero-norm GS vector: set row to represent no coupling
-            for j = i:size(μ, 2)
-                μ[i, j] = (j == i) ? one(eltype(μ)) : zero(eltype(μ))
-            end
-        else
-            for j = i:size(μ, 2)
-                μ[i, j] = μ[i, j] / dᵢ
-            end
+    F = qr(B)
+    R̃ = F.R
+    for i in axes(R̃, 1)
+        dᵢ = R̃[i, i]
+        for j = i:size(R̃, 2)
+            R̃[i, j] /= dᵢ
         end
     end
-    # Construct GS vectors: Q * diag(original R diagonals)
-    Q̃ = Ffac.Q * Diagonal(d)
+    Q̃ = F.Q * Diagonal(F.R)
     B⃗ = [dot((@view Q̃[:, j]), (@view Q̃[:, j])) for j in axes(Q̃, 2)]
-    return GSOData(Matrix(B), B⃗, Q̃, μ)
+    return GSOData(Matrix(B), B⃗, Q̃, R̃)
 end
 
 function partial_size_reduce!(g::GSOData{IType,FType}, i::Int, j::Int) where {IType,FType}
@@ -58,16 +32,59 @@ function partial_size_reduce!(g::GSOData{IType,FType}, i::Int, j::Int) where {IT
         throw(ArgumentError("should satisfy i < j, actual i=$(i), j=$(j)"))
     end
     μ_ij = g.R[i, j]
-    if !(isfinite(μ_ij))
-        println("[debug] non-finite μ at (", i, ",", j, "): ", μ_ij)
-        println("[debug] row i of R: ", collect(@view g.R[i, :]))
-    end
-    q = round(IType, μ_ij)
+    q = fplll_round(μ_ij)
     bi = @view g.B[:, i]
     bj = @view g.B[:, j]
     @. bj -= q * bi
     for l = 1:i
         g.R[l, j] -= q * g.R[l, i]
+    end
+    g
+end
+
+@inline function iszerovec(v)
+    r = true
+    for i in eachindex(v)
+        r *= v[i] ≈ zero(v[i])
+    end
+    r
+end
+
+function fplll_round(μ)
+    # fplll の最近整数関数に合わせる: 最近接（0.5 はゼロから遠い側に丸め）
+    if μ >= zero(μ)
+        q_i = floor(BigInt, μ + (one(μ) / 2))
+    else
+        q_i = ceil(BigInt, μ - (one(μ) / 2))
+    end
+end
+
+
+function partial_size_reduce!(
+    B::AbstractMatrix{T},
+    R::AbstractMatrix,
+    i::Int,
+    k::Int,
+) where {T}
+    (1 ≤ i < k) || return
+    μ = R[i, k]
+    m = fplll_round(μ)
+    m == 0 && return
+    B[:, k] .-= m .* B[:, i]
+    @inbounds begin
+        for j = 1:(i-1)
+            R[j, k] -= m * R[j, i]
+        end
+        R[i, k] -= m
+    end
+end
+
+function size_reduce!(g::GSOData)
+    R = g.R
+    for j = 2:size(R, 2)
+        for i = (j-1):-1:1
+            partial_size_reduce!(g, i, j)
+        end
     end
     g
 end
@@ -100,7 +117,7 @@ function ENUM_reduce(
                 σ[i, k] = σ[i+1, k] + μ[k, i] * v[i]
             end
             c[k] = -σ[k+1, k]
-            v[k] = round(BigInt, c[k])
+            v[k] = fplll_round(c[k])
             w[k] = 1
         else
             k += 1
@@ -124,43 +141,6 @@ function ENUM_reduce(
     end # while
 end # function
 
-@inline function iszerovec(v)
-    r = true
-    for i in eachindex(v)
-        r *= v[i] ≈ zero(v[i])
-    end
-    r
-end
-
-function partial_size_reduce!(
-    B::AbstractMatrix{T},
-    R::AbstractMatrix,
-    i::Int,
-    k::Int,
-) where {T}
-    (1 ≤ i < k) || return
-    μ = R[i, k]
-    m = round(T, μ)
-    m == 0 && return
-    B[:, k] .-= m .* B[:, i]
-    @inbounds begin
-        for j = 1:(i-1)
-            R[j, k] -= m * R[j, i]
-        end
-        R[i, k] -= m
-    end
-end
-
-function size_reduce!(g::GSOData)
-    R = g.R
-    for j = 2:size(R, 2)
-        for i = (j-1):-1:1
-            partial_size_reduce!(g, i, j)
-        end
-    end
-    g
-end
-
 function gsoupdate!(g::GSOData, k::Integer)
     k ≥ 2 || throw(ArgumentError("k should satisfy k ≥ 2, actual k=$(k)"))
     for i in axes(g.B, 1)
@@ -170,7 +150,6 @@ function gsoupdate!(g::GSOData, k::Integer)
     μ = g.R
     ν = μ[k-1, k]
     B = g.B⃗[k] + ν ^ 2 * g.B⃗[k-1]
-
     μ[k-1, k] = ν * g.B⃗[k-1] / B
     g.B⃗[k] = g.B⃗[k] * g.B⃗[k-1] / B
     g.B⃗[k-1] = B
@@ -364,50 +343,42 @@ function find_svp_by_enum(B, k, l)
     return coeff
 end
 
-function BKZ_reduction!(B::AbstractMatrix, β::Integer, δ::Real)
-	g = LLL_reduce(B, δ)
-	B .= g.B
-	n = size(B, 2)
-	z = 0
-	k = 0
-	while z < n - 1
-		k = mod(k, n-1) + 1
-		l = min(k + β - 1, n)
-		h = min(l + 1, n)
-		coeff = find_svp_by_enum(B, k, l)
-		if iszerovec(coeff)
-			@info "coeff got zero vector"
-			break
-		end
-		v = zeros(eltype(B), n)
-		for (i, idx_k_to_l) in enumerate(k:l)
-			v += coeff[i] * B[:, idx_k_to_l]
-		end
+function BKZ_reduce!(B::AbstractMatrix, β::Integer, δ::Real)
+    g = LLL_reduce(B, δ)
+    B .= g.B
+    n = size(B, 2)
+    z = 0
+    k = 0
+    while z < n - 1
+        k = mod(k, n-1) + 1
+        l = min(k + β - 1, n)
+        h = min(l + 1, n)
+        coeff = find_svp_by_enum(B, k, l)
+        if iszerovec(coeff)
+            @info "coeff got zero vector"
+            break
+        end
+        v = zeros(eltype(B), n)
+        for (i, idx_k_to_l) in enumerate(k:l)
+            v += coeff[i] * B[:, idx_k_to_l]
+        end
 
-		g = GSOData(B)
+        g = GSOData(B)
 
-		πₖv_norm2 = 0
-		for i = k:n
-			πₖv_norm2 += dot(v, g.Q[:, i]) ^ 2 / dot(g.Q[:, i], g.Q[:, i])
-		end
-		if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + eps()
-			z = 0
-			Bsub = Matrix{BigInt}(undef, size(B, 1), h+1)
-			for i in 1:k-1
-				Bsub[:, i] .= @view B[:, i]
-			end
-			Bsub[:, k] = v
-			for i in k:h
-				Bsub[:, 1+i] = @view B[:, i]
-			end
-			MLLL_reduce!(Bsub, δ)
-			B[:, 1:h] .= @view Bsub[:, 1:h]
-		else
-			z += 1
-			g′ = LLL_reduce((@view B[:, 1:h]), δ)
-			B[:, 1:h] = g′.B
-		end
-	end # while
+        πₖv_norm2 = 0
+        for i = k:n
+            πₖv_norm2 += dot(v, g.Q[:, i]) ^ 2 / dot(g.Q[:, i], g.Q[:, i])
+        end
+        if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + 0.0001
+            z = 0
+            Bsub = hcat((B[:, i] for i = 1:(k-1))..., v, (B[:, i] for i = k:h)...)
+            MLLL_reduce!(Bsub, δ)
+            B[:, 1:h] .= Bsub[:, 1:h]
+        else
+            z += 1
+            g′ = LLL_reduce((@view B[:, 1:h]), δ)
+            B[:, 1:h] = g′.B
+        end
+    end # while
 end
-
 end # module LatticeReductionAlgorithms
