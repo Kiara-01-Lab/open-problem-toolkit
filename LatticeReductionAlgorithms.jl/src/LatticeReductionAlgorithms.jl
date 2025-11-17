@@ -335,7 +335,7 @@ function find_svp_by_enum(B, k, l)
     n = size(B, 2)
 
     R²ₙ = ε * maximum(g.B⃗[k:l])
-    R² = [R²ₙ for k = k:l]
+    R² = [R²ₙ for _ = k:l]
 
     μ = g.R[k:l, k:l]
     B⃗ = g.B⃗[k:l]
@@ -355,7 +355,7 @@ function BKZ_reduce!(B::AbstractMatrix, β::Integer, δ::Real)
         h = min(l + 1, n)
         coeff = find_svp_by_enum(B, k, l)
         if iszerovec(coeff)
-            @info "coeff got zero vector"
+            # @info "coeff got zero vector"
             break
         end
         v = zeros(eltype(B), n)
@@ -369,7 +369,7 @@ function BKZ_reduce!(B::AbstractMatrix, β::Integer, δ::Real)
         for i = k:n
             πₖv_norm2 += dot(v, g.Q[:, i]) ^ 2 / dot(g.Q[:, i], g.Q[:, i])
         end
-        if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + 0.0001
+        if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + 0.00001
             z = 0
             Bsub = hcat((B[:, i] for i = 1:(k-1))..., v, (B[:, i] for i = k:h)...)
             MLLL_reduce!(Bsub, δ)

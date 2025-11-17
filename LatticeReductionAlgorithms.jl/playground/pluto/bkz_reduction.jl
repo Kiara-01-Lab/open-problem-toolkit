@@ -399,7 +399,7 @@ function BKZ_reduce!(B::AbstractMatrix, β::Integer, δ::Real)
 		for i = k:n
 			πₖv_norm2 += dot(v, g.Q[:, i]) ^ 2 / dot(g.Q[:, i], g.Q[:, i])
 		end
-		if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + 0.0001
+		if norm(g.Q[:, k]) > sqrt(πₖv_norm2) + 0.00001
 			z = 0
 			Bsub = hcat((B[:, i] for i in 1:k-1)..., v, (B[:, i] for i in k:h)...)
 			MLLL_reduce!(Bsub, δ)
