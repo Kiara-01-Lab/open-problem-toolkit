@@ -1,10 +1,10 @@
 # Open Problem Toolkit
 
-### Test how secure tomorrow's encryption really is.
+### Open-source Julia tools for lattice cryptography research.
 
-Quantum computers will eventually break today's encryption. **Lattice-based cryptography** is the leading replacement — but how well does it actually perform? This toolkit lets you build, test, and benchmark the core algorithms so you can find out.
+Lattice-based cryptography is a leading candidate for post-quantum security, but practical performance data is still limited. This toolkit provides Julia implementations of core lattice algorithms — construction, reduction, and benchmarking — so researchers and developers can experiment with real code instead of just theory.
 
-> 量子コンピュータは現在の暗号を破る可能性があります。**格子暗号**はその有力な代替手段です。本ツールキットでは、格子暗号のコアアルゴリズムを構築・テスト・ベンチマークできます。
+> 格子暗号はポスト量子セキュリティの有力候補ですが、実用面の検証データはまだ不足しています。本ツールキットは、格子の構成・簡約・ベンチマークのコアアルゴリズムをJuliaで実装し、理論だけでなく実際のコードで実験できる環境を提供します。
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)]()
