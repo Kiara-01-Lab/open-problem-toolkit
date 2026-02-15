@@ -1,175 +1,82 @@
 # Open Problem Toolkit
 
+### Test how secure tomorrow's encryption really is.
 
-# 🧩 Exploring Lattice Cryptography through Open-Source Experimentation & Benchmarking
+Quantum computers will eventually break today's encryption. **Lattice-based cryptography** is the leading replacement — but how well does it actually perform? This toolkit lets you build, test, and benchmark the core algorithms so you can find out.
 
-> *An open-source research initiative bridging theory and practice in post-quantum cryptography.*
-> 
+> 量子コンピュータは現在の暗号を破る可能性があります。**格子暗号**はその有力な代替手段です。本ツールキットでは、格子暗号のコアアルゴリズムを構築・テスト・ベンチマークできます。
+
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)]()
 [![Open Source](https://badgen.net/badge/open/source/green)]()
 
 ---
 
-## 📑 Table of Contents
+## Packages
 
-* [Abstract](#-abstract)
-* [Development](#-development)
-* [Why It Matters](#-why-it-matters)
-* [Roadmap](#-roadmap)
-* [Long-Term Vision](#-long-term-vision)
-* [Contributing](#-contributing)
-* [License](#-license)
-
----
-
-## 📘 Abstract
-
-Quantum computing threatens the foundations of classical public-key systems such as **RSA** and **ECC**.
-Among emerging alternatives, **lattice-based cryptography** — particularly those built on *structured lattices* (ring and module lattices) — stands out as a leading candidate for post-quantum security.
-
-Yet despite its theoretical strength, practical adoption remains limited by challenges such as:
-
-* High computational overhead
-* Complex basis reduction
-* Large key sizes
-
-This project aims to **bridge theory and implementation** through an **open-source experimental framework** for lattice construction, reduction, and benchmarking.
-By building and testing core lattice algorithms, we seek to quantify the computational trade-offs in **reduction**, **key generation**, and **encryption/decryption efficiency**.
-
-### 🔬 Toolkit Overview
-
-| Version  | Component                          | Description                                     |
-| -------- | ---------------------------------- | ----------------------------------------------- |
-| **v1.0** | *Ideal Lattice Builder*            | Tools for constructing ring-based lattices      |
-| **v1.1** | *Base Vector Reduction Algorithm*  | Classical lattice basis reduction               |
-| **v1.2** | *KZ (Korkine–Zolotarev) Reduction* | Advanced reduction for comparative benchmarking |
-
-Benchmarking is performed using the [Lattice Challenge](https://www.latticechallenge.org/), with emphasis on:
-
-* **Scalability with lattice dimension**
-* **Runtime complexity**
-* **Numerical stability**
-
-> All code, data, and benchmark results are released openly to ensure **reproducibility** and **community collaboration**.
-
-![Lattice visualization](https://images.unsplash.com/photo-1643424975787-f134e78ecbc8?ixlib=rb-4.1.0\&q=85\&fm=jpg\&crop=entropy\&cs=srgb)
+| Package | What it does | Status |
+|---------|-------------|--------|
+| **LatticeBasedCryptography.jl** | Encrypt & decrypt using lattice schemes | 🟡 In progress |
+| **LatticeReductionAlgorithms.jl** | Break lattices with reduction algorithms (LLL, KZ) | 🟡 In progress |
+| **HomomorphicCryptography.jl** | Compute on encrypted data without decrypting | 🟡 In progress |
+| **LibOQS.jl** | Julia bindings for [liboqs](https://openquantumsafe.org/) (NIST PQC algorithms) | 🟡 In progress |
+| **PQCValidator.jl** | Validate post-quantum parameter security | 🔵 Early |
+| **ZKPValidator.jl** | Validate zero-knowledge proof constructions | 🔵 Early |
 
 ---
 
-## 🧪 Development
+## Quick Start
 
-### *Open Problem Toolkit: Building and Breaking Lattices for the Post-Quantum Era*
+```julia
+using Pkg
+Pkg.add(url="https://github.com/Kiara-01-Lab/open-problem-toolkit")
+```
 
-Quantum computing is accelerating — and with it, the end of classical encryption as we know it.
-Lattice-based cryptography offers a **mathematically elegant**, **computationally hard**, and **provably secure** foundation for the post-quantum era.
-Yet, turning that promise into efficient, real-world systems remains a work in progress.
+```julia
+# Example: Build a ring-based lattice and reduce its basis
+using LatticeReductionAlgorithms
 
-That’s where this project comes in.
+L = random_lattice(dim=64)
+reduced = lll_reduce(L)
+println("Reduction ratio: ", reduction_quality(reduced))
+```
 
-We’re developing an **open-source experimental toolkit** for exploring:
-
-* Lattice construction and manipulation
-* Basis reduction and solver algorithms
-* Performance and reproducibility benchmarking
-
-Our goal is to give researchers and developers a **hands-on understanding** of what it takes to build — and break — real lattice systems.
-
-### 🧭 Current Milestones
-
-| Milestone                         | Description                                      |
-| --------------------------------- | ------------------------------------------------ |
-| **v1.0 – Ideal Lattice Builder**  | Constructs ring-based lattices                   |
-| **v1.1 – Base Vector Reduction**  | Implements classical lattice reduction           |
-| **v1.2 – KZ Reduction Algorithm** | Advanced reduction with benchmarking in progress |
-
-Once these modules are complete, we’ll run **large-scale benchmarks** on the [Lattice Challenge](https://www.latticechallenge.org/), evaluating **scalability** and **runtime performance**.
-Findings will be shared via **open preprints on [arXiv](https://arxiv.org/)** with full datasets and reproducible code.
+> ⚠️ API is under active development. Expect breaking changes before v1.0.
 
 ---
 
-## 💡 Why It Matters
+## Why This Exists
 
-Modern cryptography needs **evidence**, not just theory.
-Our project exposes the practical limits of lattice algorithms — showing where math meets machine.
+Post-quantum crypto is mostly studied in theory. Real-world performance data is scarce.
 
-Through empirical testing, we aim to uncover:
+This toolkit provides **empirical evidence**: how fast these algorithms run, where they break down, and which parameter choices actually matter — benchmarked against the [Lattice Challenge](https://www.latticechallenge.org/).
 
-* How parameter choices affect computational efficiency
-* Which optimizations truly improve performance
-* Where current solvers begin to fail
-
-This bridges **theoretical security** with **real-world implementation**, providing data-driven insights that can guide the next generation of post-quantum cryptographic systems.
-
-Being open-source from the start, we invite collaboration from:
-
-* 🧮 Researchers
-* 💻 Developers
-* 🏢 Industry practitioners
-
-Together, we can explore the balance between **usability** and **security** in post-quantum cryptography.
+Results are published as open preprints on [arXiv](https://arxiv.org/) with full datasets.
 
 ---
 
-## 🚀 Roadmap
+## Roadmap
 
-Each release builds toward a comprehensive toolkit for lattice-based cryptography — from mathematical construction to full-scale solver benchmarks.
+| Phase | Milestone | Target |
+|-------|-----------|--------|
+| 1 | Lattice construction + LLL reduction | Sep–Oct |
+| 2 | KZ reduction + first preprint | Nov |
+| 3 | Modular solver framework v2 | Dec–Jan |
+| 4 | Large-scale benchmarks + scalability analysis | Feb–Mar |
 
-### 🗓 Upcoming Milestones
-
-#### **September – October**
-
-* Launch **v1.0** (Ideal Lattice Builder) and **v1.1** (Base Vector Reduction).
-* Release experimental **Solver A** and **Solver B** prototypes.
-
-#### **November**
-
-* Publish first preprint outlining initial results and open problems.
-* Optimize the implementation toolchain for scalability.
-
-#### **December – January**
-
-* Develop **Implementation Tool v2** for modular algorithm experimentation.
-* Launch alpha version and release second preprint focused on performance.
-
-#### **February – March**
-
-* Conduct **large-scale solver benchmarks** using [Lattice Challenge](https://www.latticechallenge.org/).
-* Analyze **dimensional scalability** and test **real-world optimization techniques**.
+**Long-term goal:** A reference platform where anyone can build, test, and break post-quantum encryption with full transparency.
 
 ---
 
-## 🌐 Long-Term Vision
+## Contributing
 
-By mid-year, we aim to make this toolkit a **reference platform** for lattice cryptography —
-a place where researchers, students, and engineers can **build, test, and break** post-quantum schemes with complete transparency.
+1. Fork → branch → commit → PR.
+2. See [`COMMUNITIES.md`](COMMUNITIES.md) for related open-science communities.
 
-Our end goal:
-
-> **Empower the community to develop practical, efficient, and secure post-quantum systems.**
+All skill levels welcome — math, code, docs, or ideas.
 
 ---
 
-## 🤝 Contributing
+## License
 
-We welcome contributions of all kinds — from research ideas to code optimization and documentation.
-
-**How to Contribute:**
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature-name`)
-3. Commit your changes (`git commit -m "Add feature-name"`)
-4. Push to your branch (`git push origin feature-name`)
-5. Open a Pull Request
-
-**Community Engagement:**
-
-For information about relevant open source and open science communities where you can share ideas, collaborate, or learn more about post-quantum cryptography, see [`COMMUNITIES.md`](COMMUNITIES.md).
-
----
-
-## 📄 License
-
-This project is licensed under the Apache License.
-Feel free to use, modify, and distribute under the same terms.
-
----
+Apache 2.0 — free to use, modify, and distribute.
